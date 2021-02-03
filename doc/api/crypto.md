@@ -2551,8 +2551,8 @@ added:
 * Returns: {Buffer}
 
 Computes the Diffie-Hellman secret based on a `privateKey` and a `publicKey`.
-Both keys must have the same `asymmetricKeyType`, which must be one of `'dh'`
-(for Diffie-Hellman), `'ec'` (for ECDH), `'x448'`, or `'x25519'` (for ECDH-ES).
+Both keys must have the same `asymmetricKeyType`, which must be one of `'dh'`,
+`'ec'`, `'x448'`, or `'x25519'`.
 
 ### `crypto.generateKey(type, options, callback)`
 <!-- YAML
@@ -3894,6 +3894,168 @@ added: v15.0.0
 Type: {Crypto} An implementation of the Web Crypto API standard.
 
 See the [Web Crypto API documentation][] for details.
+
+## `crypto` Promises API
+<!-- YAML
+added: REPLACEME
+-->
+
+> Stability: 1 - Experimental
+
+The `crypto.promises` API provides an alternative set of asynchronous crypto
+methods that return `Promise` objects and execute operations in libuv's
+threadpool.
+The API is accessible via `require('crypto').promises` or `require('crypto/promises')`.
+
+### `cryptoPromises.diffieHellman(options)`
+<!-- YAML
+added: REPLACEME
+-->
+
+* `options`: {Object}
+  * `privateKey`: {KeyObject|CryptoKey}
+  * `publicKey`: {KeyObject|CryptoKey}
+* Returns: {Promise} containing {Buffer}
+
+Computes the Diffie-Hellman secret based on a `privateKey` and a `publicKey`.
+Both keys must have the same `asymmetricKeyType`, which must be one of `'dh'`,
+`'ec'`, `'x448'`, or `'x25519'`.
+
+Example: TODO: @panva
+
+```js
+const crypto = require('crypto/promises');
+
+(async function() {
+  // TODO: @panva
+})();
+```
+
+### `cryptoPromises.digest(algorithm, data[, options])`
+<!-- YAML
+added: REPLACEME
+-->
+
+* `algorithm` {string}
+* `data` {ArrayBuffer|TypedArray|DataView|Buffer}
+* `options` {Object}
+  * `outputLength` {number} Used to specify the desired output length in bytes
+    for XOF hash functions such as `'shake256'`.
+* Returns: {Promise} containing {Buffer}
+
+Generates hash digests using the given `algorithm`.
+
+The `algorithm` is dependent on the available algorithms supported by the
+version of OpenSSL on the platform. Examples are `'sha256'`, `'sha512'`, etc.
+On recent releases of OpenSSL, `openssl list -digest-algorithms`
+(`openssl list-message-digest-algorithms` for older versions of OpenSSL) will
+display the available digest algorithms.
+
+Example: generating sha256 digest
+
+```js
+const crypto = require('crypto/promises');
+
+(async function() {
+  const data = Buffer.from('Hello Node.js');
+  const digest = await crypto.digest('sha256', data);
+  console.log(digest.toString('hex'));
+  // Prints: 2243e9d8a94ad60706a22a3dc2155c084f3f5b1ff0c6e0eb0e4da76803be1cdc
+})();
+```
+
+### `cryptoPromises.hmac(algorithm, data, key)`
+<!-- YAML
+added: REPLACEME
+-->
+
+* `algorithm` {string}
+* `data` {ArrayBuffer|TypedArray|DataView|Buffer}
+* `key` {KeyObject|CryptoKey}
+* Returns: {Promise} containing {Buffer}
+
+TODO: @panva
+
+Example: TODO: @panva
+
+```js
+const crypto = require('crypto/promises');
+
+(async function() {
+  // TODO: @panva
+})();
+```
+
+### `cryptoPromises.sign(algorithm, data, key[, options])`
+<!-- YAML
+added: REPLACEME
+-->
+
+* `algorithm` {string|null|undefined}
+* `data` {ArrayBuffer|TypedArray|DataView|Buffer}
+* `key` {KeyObject|CryptoKey}
+* `options` {Object}
+  * `dsaEncoding` {string} For DSA and ECDSA, this option specifies the
+    format of the generated signature. It can be one of the following:
+    * `'der'` (default): DER-encoded ASN.1 signature structure encoding `(r, s)`.
+    * `'ieee-p1363'`: Signature format `r || s` as proposed in IEEE-P1363.
+  * `padding` {integer} Optional padding value for RSA, one of the following:
+    * `crypto.constants.RSA_PKCS1_PADDING` (default)
+    * `crypto.constants.RSA_PKCS1_PSS_PADDING`
+  * `saltLength` {integer} Salt length for when padding is
+    `RSA_PKCS1_PSS_PADDING`. The special value
+    `crypto.constants.RSA_PSS_SALTLEN_DIGEST` sets the salt length to the digest
+    size, `crypto.constants.RSA_PSS_SALTLEN_MAX_SIGN` (default) sets it to the
+    maximum permissible value.
+* Returns: {Promise} containing {Buffer}
+
+TODO: @panva
+
+Example: TODO: @panva
+
+```js
+const crypto = require('crypto/promises');
+
+(async function() {
+  // TODO: @panva
+})();
+```
+
+### `cryptoPromises.verify(algorithm, data, key, signature[, options])`
+<!-- YAML
+added: REPLACEME
+-->
+
+* `algorithm` {string|null|undefined}
+* `data` {ArrayBuffer|TypedArray|DataView|Buffer}
+* `key` {KeyObject|CryptoKey}
+* `signature` {ArrayBuffer|TypedArray|DataView|Buffer}
+* `options` {Object}
+  * `dsaEncoding` {string} For DSA and ECDSA, this option specifies the
+    format of the generated signature. It can be one of the following:
+    * `'der'` (default): DER-encoded ASN.1 signature structure encoding `(r, s)`.
+    * `'ieee-p1363'`: Signature format `r || s` as proposed in IEEE-P1363.
+  * `padding` {integer} Optional padding value for RSA, one of the following:
+    * `crypto.constants.RSA_PKCS1_PADDING` (default)
+    * `crypto.constants.RSA_PKCS1_PSS_PADDING`
+  * `saltLength` {integer} Salt length for when padding is
+    `RSA_PKCS1_PSS_PADDING`. The special value
+    `crypto.constants.RSA_PSS_SALTLEN_DIGEST` sets the salt length to the digest
+    size, `crypto.constants.RSA_PSS_SALTLEN_MAX_SIGN` (default) sets it to the
+    maximum permissible value.
+* Returns: {Promise} containing {boolean}
+
+TODO: @panva
+
+Example: TODO: @panva
+
+```js
+const crypto = require('crypto/promises');
+
+(async function() {
+  // TODO: @panva
+})();
+```
 
 ## Notes
 
