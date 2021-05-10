@@ -281,3 +281,8 @@ for (const [ value, _method ] of [
   await m.evaluate();
   assert.ok(types.isModuleNamespaceObject(m.namespace));
 })().then(common.mustCall());
+
+if (!common.hasCrypto) {
+  assert.ok(!types.isCryptoKey());
+  assert.ok(!types.isKeyObject());
+}
