@@ -331,3 +331,128 @@ async function testImportRaw({ name, publicUsages }) {
       true, [privateUsage]), { message: /Invalid key type/ });
   }
 }
+
+{
+  function toLittleEndian(bigNumber, size) {
+    const result = new Uint8Array(size);
+    let i = 0;
+    while (bigNumber > 0n) {
+      if (i >= size) throw new Error('Number too big');
+      result[i] = Number(bigNumber % 256n);
+      bigNumber /= 256n;
+      i++;
+    }
+    return result;
+  }
+
+  const curve25519p = 2n ** 255n - 19n;
+  const x25519LowOrderElements = [
+    0n,
+    1n,
+    325606250916557431795983626356110631294008115727848805560023387167927233504n,
+    39382357235489614581723060781553021112529911719440698176882885853963445705823n,
+    curve25519p - 1n,
+    curve25519p,
+    curve25519p + 1n,
+  ];
+
+  const x25519UnclampedLowOrderElements = [
+    curve25519p + 325606250916557431795983626356110631294008115727848805560023387167927233504n,
+    curve25519p + 39382357235489614581723060781553021112529911719440698176882885853963445705823n,
+    2n * curve25519p - 1n,
+    2n * curve25519p,
+    2n * curve25519p + 1n,
+  ];
+
+  const ed25519LowOrderElements = [
+    0n,
+    1n,
+    2707385501144840649318225287225658788936804267575313519463743609750303402022n,
+    55188659117513257062467267217118295137698188065244968500265048394206261417927n,
+    curve25519p - 1n,
+    curve25519p,
+    curve25519p + 1n,
+  ];
+
+  const curve448p = 2n ** 448n - 2n ** 224n - 1n;
+  const curve448LowOrderElements = [
+    0n,
+    1n,
+    curve448p - 1n,
+    curve448p,
+    curve448p + 1n,
+  ];
+
+  // Test X25519 low-order public keys
+  for (const lowOrderElement of x25519LowOrderElements) {
+    const rawPublicKey = toLittleEndian(lowOrderElement, 32);
+    assert.rejects(subtle.importKey('raw', rawPublicKey, 'X25519', false, []), { name: 'DataError' });
+  }
+
+  // Test X25519 public keys that will be low-order after being clamped
+  for (const lowOrderElement of x25519LowOrderElements) {
+    const rawPublicKey = toLittleEndian(lowOrderElement, 32);
+    rawPublicKey[31] |= 1 << 7; // Set the bit that will be clamped
+    assert.rejects(subtle.importKey('raw', rawPublicKey, 'X25519', false, []), { name: 'DataError' });
+  }
+
+  // Test X25519 low-order elements that *won't* be low-order public keys after being clamped
+  (async () => {
+    for (const lowOrderElement of x25519UnclampedLowOrderElements) {
+      const { privateKey } = await subtle.generateKey('X25519', false, ['deriveBits']);
+      const rawPublicKey = toLittleEndian(lowOrderElement, 32);
+      const publicKey = await subtle.importKey('raw', rawPublicKey, 'X25519', false, []);
+      const derivedBits = new Uint8Array(
+        await subtle.deriveBits({ name: 'X25519', public: publicKey }, privateKey, null),
+      );
+      assert.strictEqual(derivedBits.byteLength, 32);
+      assert.strictEqual(Buffer.alloc(32).equals(derivedBits), false);
+    }
+  })().then(common.mustCall());
+
+  // Test Ed25519 low-order public keys
+  for (const lowOrderElement of ed25519LowOrderElements) {
+    const rawPublicKey = toLittleEndian(lowOrderElement, 32);
+    assert.rejects(subtle.importKey('raw', rawPublicKey, 'Ed25519', false, ['verify']), { name: 'DataError' });
+  }
+
+  // Test Ed25519 low-order signature R
+  (async () => {
+    for (const lowOrderElement of ed25519LowOrderElements) {
+      const { publicKey } = await subtle.generateKey('Ed25519', false, ['sign', 'verify']);
+      const R = toLittleEndian(lowOrderElement, 32);
+      const signature = new Uint8Array(64);
+      signature.set(R);
+      await assert.rejects(
+        subtle.verify('Ed25519', publicKey, signature, new Uint8Array(8)),
+        { name: 'DataError', message: 'Bad Ed25519 signature.' },
+      );
+    }
+  })().then(common.mustCall());
+
+  // Test X448 low-order public keys
+  for (const lowOrderElement of curve448LowOrderElements) {
+    const rawPublicKey = toLittleEndian(lowOrderElement, 56);
+    assert.rejects(subtle.importKey('raw', rawPublicKey, 'X448', false, []), { name: 'DataError' });
+  }
+
+  // Test Ed448 low-order public keys
+  for (const lowOrderElement of curve448LowOrderElements) {
+    const rawPublicKey = toLittleEndian(lowOrderElement, 57);
+    assert.rejects(subtle.importKey('raw', rawPublicKey, 'Ed448', false, ['verify']), { name: 'DataError' });
+  }
+
+  // Test Ed448 low-order signature R
+  (async () => {
+    for (const lowOrderElement of curve448LowOrderElements) {
+      const { publicKey } = await subtle.generateKey('Ed448', false, ['sign', 'verify']);
+      const R = toLittleEndian(lowOrderElement, 57);
+      const signature = new Uint8Array(114);
+      signature.set(R);
+      await assert.rejects(
+        subtle.verify('Ed448', publicKey, signature, new Uint8Array(8)),
+        { name: 'DataError', message: 'Bad Ed448 signature.' },
+      );
+    }
+  })().then(common.mustCall());
+}
