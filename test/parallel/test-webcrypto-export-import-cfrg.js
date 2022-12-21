@@ -331,3 +331,59 @@ async function testImportRaw({ name, publicUsages }) {
       true, privateUsages), { message: /Invalid key type/ });
   }
 }
+
+{
+  function toLittleEndian(bigNumber, size) {
+    const result = new Uint8Array(size);
+    let i = 0;
+    while (bigNumber > 0n) {
+      if (i >= size) throw new Error('Number too big');
+      result[i] = Number(bigNumber % 256n);
+      bigNumber /= 256n;
+      i++;
+    }
+    return result;
+  }
+
+  const curve25519p = 2n ** 255n - 19n;
+  const curve25519LowOrderElements = [
+    0n,
+    1n,
+    325606250916557431795983626356110631294008115727848805560023387167927233504n,
+    39382357235489614581723060781553021112529911719440698176882885853963445705823n,
+    curve25519p - 1n,
+    curve25519p,
+    curve25519p + 1n,
+  ];
+
+  const curve448p = 2n ** 448n - 2n ** 224n - 1n;
+  const curve448LowOrderElements = [
+    0n,
+    1n,
+    curve448p - 1n,
+    curve448p,
+    curve448p + 1n,
+  ];
+
+  // Test X25519 low-order public keys
+  for (const lowOrderElement of curve25519LowOrderElements) {
+    (async () => {
+      const publicKey = await subtle.importKey('raw', toLittleEndian(lowOrderElement, 32), 'X25519', false, []);
+      const { privateKey } = await subtle.generateKey('X25519', false, ['deriveBits']);
+      return assert.rejects(
+        subtle.deriveBits({ name: 'X25519', public: publicKey }, privateKey, null),
+        { name: 'OperationError' });
+    })().then(common.mustCall());
+  }
+
+  // Test X448 low-order public keys
+  for (const lowOrderElement of curve448LowOrderElements) {
+    (async () => {
+      const publicKey = await subtle.importKey('raw', toLittleEndian(lowOrderElement, 56), 'X448', false, []);
+      const { privateKey } = await subtle.generateKey('X448', false, ['deriveBits']);
+      return assert.rejects(
+        subtle.deriveBits({ name: 'X448', public: publicKey }, privateKey, null),
+        { name: 'OperationError' });
+    })().then(common.mustCall());
+  }
+}
