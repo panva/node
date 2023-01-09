@@ -1,4 +1,4 @@
-// Flags: --no-experimental-global-webcrypto
+// Flags: --no-global-webcrypto
 'use strict';
 
 require('../common');

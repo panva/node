@@ -402,14 +402,6 @@ added: v18.0.0
 
 Disable experimental support for the [Fetch API][].
 
-### `--no-experimental-global-webcrypto`
-
-<!-- YAML
-added: v19.0.0
--->
-
-Disable exposition of [Web Crypto API][] on the global scope.
-
 ### `--no-experimental-global-customevent`
 
 <!-- YAML
@@ -844,6 +836,19 @@ added: v16.10.0
 
 Do not search modules from global paths like `$HOME/.node_modules` and
 `$NODE_PATH`.
+
+### `--no-global-webcrypto`
+
+<!-- YAML
+added: v19.0.0
+changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/REPLACEME
+    description: This flag was renamed from `--no-experimental-global-webcrypto` to
+                 `--no-global-webcrypto`.
+-->
+
+Disable exposition of [Web Crypto API][] on the global scope.
 
 ### `--no-warnings`
 
@@ -1924,11 +1929,11 @@ Node.js options that are allowed are:
 * `--no-deprecation`
 * `--no-experimental-fetch`
 * `--no-experimental-global-customevent`
-* `--no-experimental-global-webcrypto`
 * `--no-experimental-repl-await`
 * `--no-extra-info-on-fatal-exception`
 * `--no-force-async-hooks-checks`
 * `--no-global-search-paths`
+* `--no-global-webcrypto`
 * `--no-warnings`
 * `--node-memory-debug`
 * `--openssl-config`

@@ -349,7 +349,7 @@ child.exec(
     assert.match(stdout, /^number/);
   }));
 child.exec(
-  `${nodejs} --no-experimental-global-webcrypto ` +
+  `${nodejs} --no-global-webcrypto ` +
     '-p "var crypto = {randomBytes:1};typeof crypto.randomBytes"',
   common.mustSucceed((stdout) => {
     assert.match(stdout, /^number/);
