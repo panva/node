@@ -10,7 +10,7 @@ on:
       node-versions:
         description: Node.js versions (as supported by actions/setup-node) to test as JSON array
         required: false
-        default: '["current", "lts/*", "lts/-1"]'
+        default: '["lts/-1", "lts/*", "current"]'
   schedule:
     # This is 20 minutes after `epochs/daily` branch is triggered to be created
     # in WPT repo.
@@ -28,8 +28,9 @@ jobs:
     if: github.repository == 'nodejs/node' || github.event_name == 'workflow_dispatch'
     strategy:
       matrix:
-        node-version: ${{ fromJSON(github.event.inputs.node-versions || '["latest-nightly", "current", "lts/*", "lts/-1"]') }}
+        node-version: ${{ fromJSON(github.event.inputs.node-versions || '["lts/-1", "lts/*", "current", "latest-nightly"]') }}
       fail-fast: false
+      max-parallel: 1
     runs-on: ubuntu-latest
     steps:
       - name: Set up Python ${{ env.PYTHON_VERSION }}
