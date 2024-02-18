@@ -111,7 +111,7 @@ jobs:
           rm -rf test/wpt/tests
           mv ../../test/fixtures/wpt/ test/wpt/tests/
           npm install
-          npm run test:wpt || true
+          cat package.json | jq '.scripts["test:wpt"] | split(" && ").[]' | xargs -I {} sh -c '{} || true'
         working-directory: deps/undici
 
       # Upload artifacts
