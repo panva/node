@@ -17,6 +17,9 @@ const hashes = [
   'SHA-256',
   'SHA-384',
   'SHA-512',
+  'SHA3-256',
+  'SHA3-384',
+  'SHA3-512',
 ];
 
 const keyData = {
@@ -387,13 +390,13 @@ async function testImportJwk(
   let alg;
   switch (name) {
     case 'RSA-PSS':
-      alg = `PS${hash === 'SHA-1' ? 1 : hash.substring(4)}`;
+      alg = hash.startsWith('SHA-') ? `PS${hash === 'SHA-1' ? 1 : hash.substring(4)}` : undefined;
       break;
     case 'RSA-OAEP':
-      alg = `RSA-OAEP${hash === 'SHA-1' ? '' : hash.substring(3)}`;
+      alg = hash.startsWith('SHA-') ? `RSA-OAEP${hash === 'SHA-1' ? '' : hash.substring(3)}` : undefined;
       break;
     case 'RSASSA-PKCS1-v1_5':
-      alg = `RS${hash === 'SHA-1' ? 1 : hash.substring(4)}`;
+      alg = hash.startsWith('SHA-') ? `RS${hash === 'SHA-1' ? 1 : hash.substring(4)}` : undefined;
       break;
   }
 
@@ -497,7 +500,7 @@ async function testImportJwk(
       { message: 'Invalid JWK "use" Parameter' });
   }
 
-  {
+  if (alg) {
     await assert.rejects(
       subtle.importKey(
         'jwk',
