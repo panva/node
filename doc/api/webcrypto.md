@@ -375,6 +375,7 @@ implementation and the APIs supported for each:
 | `'SHA-256'`                                               |               |             |             |           |           |           |             |              |             |        |          | ✔        |
 | `'SHA-384'`                                               |               |             |             |           |           |           |             |              |             |        |          | ✔        |
 | `'SHA-512'`                                               |               |             |             |           |           |           |             |              |             |        |          | ✔        |
+| `'AES-OCB'` <span class="experimental-inline"></span>[^2]  | ✔             | ✔           | ✔           | ✔         | ✔         | ✔         | ✔           |              |             |        |          |          |
 | `'SHA3-256'` <span class="experimental-inline"></span>[^2] |               |             |             |           |           |           |             |              |             |        |          | ✔        |
 | `'SHA3-384'` <span class="experimental-inline"></span>[^2] |               |             |             |           |           |           |             |              |             |        |          | ✔        |
 | `'SHA3-512'` <span class="experimental-inline"></span>[^2] |               |             |             |           |           |           |             |              |             |        |          | ✔        |
@@ -505,6 +506,7 @@ Valid key usages depend on the key algorithm (identified by
 | `'AES-CTR'`                                               | ✔           | ✔           |          |            |               |                | ✔           | ✔             |
 | `'AES-GCM'`                                               | ✔           | ✔           |          |            |               |                | ✔           | ✔             |
 | `'AES-KW'`                                                |             |             |          |            |               |                | ✔           | ✔             |
+| `'AES-OCB'` <span class="experimental-inline"></span>[^2] | ✔           | ✔           |          |            |               |                | ✔           | ✔             |
 | `'ECDH'`                                                  |             |             |          |            | ✔             | ✔              |             |               |
 | `'X25519'` <span class="experimental-inline"></span>[^1]  |             |             |          |            | ✔             | ✔              |             |               |
 | `'X448'` <span class="experimental-inline"></span>[^1]    |             |             |          |            | ✔             | ✔              |             |               |
@@ -555,7 +557,7 @@ added: v15.0.0
 added: v15.0.0
 -->
 
-* `algorithm`: {RsaOaepParams|AesCtrParams|AesCbcParams|AesGcmParams}
+* `algorithm`: {RsaOaepParams|AesCtrParams|AesCbcParams|AesGcmParams|AeadParams}
 * `key`: {CryptoKey}
 * `data`: {ArrayBuffer|TypedArray|DataView|Buffer}
 * Returns: {Promise} Fulfills with an {ArrayBuffer}
@@ -570,7 +572,8 @@ The algorithms currently supported include:
 * `'RSA-OAEP'`
 * `'AES-CTR'`
 * `'AES-CBC'`
-* `'AES-GCM`'
+* `'AES-GCM'`
+* `'AES-OCB'` <span class="experimental-inline"></span>[^2]
 
 ### `subtle.deriveBits(algorithm, baseKey[, length])`
 
@@ -694,7 +697,7 @@ whose value is one of the above.
 added: v15.0.0
 -->
 
-* `algorithm`: {RsaOaepParams|AesCtrParams|AesCbcParams|AesGcmParams}
+* `algorithm`: {RsaOaepParams|AesCtrParams|AesCbcParams|AesGcmParams|AeadParams}
 * `key`: {CryptoKey}
 * `data`: {ArrayBuffer|TypedArray|DataView|Buffer}
 * Returns: {Promise} Fulfills with an {ArrayBuffer}
@@ -709,7 +712,8 @@ The algorithms currently supported include:
 * `'RSA-OAEP'`
 * `'AES-CTR'`
 * `'AES-CBC'`
-* `'AES-GCM`'
+* `'AES-GCM'`
+* `'AES-OCB'` <span class="experimental-inline"></span>[^2]
 
 ### `subtle.exportKey(format, key)`
 
@@ -749,6 +753,7 @@ specification.
 | `'AES-CTR'`                                               |          |           | ✔       | ✔       |
 | `'AES-GCM'`                                               |          |           | ✔       | ✔       |
 | `'AES-KW'`                                                |          |           | ✔       | ✔       |
+| `'AES-OCB'` <span class="experimental-inline"></span>[^2] |          |           | ✔       | ✔       |
 | `'ECDH'`                                                  | ✔        | ✔         | ✔       | ✔       |
 | `'ECDSA'`                                                 | ✔        | ✔         | ✔       | ✔       |
 | `'Ed25519'` <span class="experimental-inline"></span>[^1] | ✔        | ✔         | ✔       | ✔       |
@@ -800,6 +805,7 @@ The {CryptoKey} (secret key) generating algorithms supported include:
 * `'AES-CBC'`
 * `'AES-GCM'`
 * `'AES-KW'`
+* `'AES-OCB'` <span class="experimental-inline"></span>[^2] 
 
 ### `subtle.importKey(format, keyData, algorithm, extractable, keyUsages)`
 
@@ -845,6 +851,7 @@ The algorithms currently supported include:
 | `'AES-CTR'`                                               |          |           | ✔       | ✔       |
 | `'AES-GCM'`                                               |          |           | ✔       | ✔       |
 | `'AES-KW'`                                                |          |           | ✔       | ✔       |
+| `'AES-OCB'` <span class="experimental-inline"></span>[^2] |          |           | ✔       | ✔       |
 | `'ECDH'`                                                  | ✔        | ✔         | ✔       | ✔       |
 | `'X25519'` <span class="experimental-inline"></span>[^1]  | ✔        | ✔         | ✔       | ✔       |
 | `'X448'` <span class="experimental-inline"></span>[^1]    | ✔        | ✔         | ✔       | ✔       |
@@ -905,7 +912,7 @@ added: v15.0.0
 
 <!--lint disable maximum-line-length remark-lint-->
 
-* `unwrapAlgo`: {AlgorithmIdentifier|RsaOaepParams|AesCtrParams|AesCbcParams|AesGcmParams}
+* `unwrapAlgo`: {AlgorithmIdentifier|RsaOaepParams|AesCtrParams|AesCbcParams|AesGcmParams|AeadParams}
 * `unwrappedKeyAlgo`: {AlgorithmIdentifier|RsaHashedImportParams|EcKeyImportParams|HmacImportParams}
 
 <!--lint enable maximum-line-length remark-lint-->
@@ -930,6 +937,7 @@ The wrapping algorithms currently supported include:
 * `'AES-CBC'`
 * `'AES-GCM'`
 * `'AES-KW'`
+* `'AES-OCB'` <span class="experimental-inline"></span>[^2]
 
 The unwrapped key algorithms supported include:
 
@@ -947,6 +955,7 @@ The unwrapped key algorithms supported include:
 * `'AES-CBC'`
 * `'AES-GCM'`
 * `'AES-KW'`
+* `'AES-OCB'` <span class="experimental-inline"></span>[^2]
 
 ### `subtle.verify(algorithm, key, signature, data)`
 
@@ -995,7 +1004,7 @@ added: v15.0.0
 * `format`: {string} Must be one of `'raw'`, `'pkcs8'`, `'spki'`, or `'jwk'`.
 * `key`: {CryptoKey}
 * `wrappingKey`: {CryptoKey}
-* `wrapAlgo`: {AlgorithmIdentifier|RsaOaepParams|AesCtrParams|AesCbcParams|AesGcmParams}
+* `wrapAlgo`: {AlgorithmIdentifier|RsaOaepParams|AesCtrParams|AesCbcParams|AesGcmParams|AeadParams}
 * Returns: {Promise} Fulfills with an {ArrayBuffer}
 
 <!--lint enable maximum-line-length remark-lint-->
@@ -1017,6 +1026,7 @@ The wrapping algorithms currently supported include:
 * `'AES-CBC'`
 * `'AES-GCM'`
 * `'AES-KW'`
+* `'AES-OCB'` <span class="experimental-inline"></span>[^2]
 
 ## Algorithm parameters
 
@@ -1103,6 +1113,57 @@ added: v15.0.0
 
 * Type: {string} Must be `'AES-CTR'`.
 
+### Class: `AeadParams`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+#### `aeadParams.additionalData`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* Type: {ArrayBuffer|TypedArray|DataView|Buffer|undefined}
+
+With the AES-OCB method, the `additionalData` is extra input that is not
+encrypted but is included in the authentication of the data. The use of
+`additionalData` is optional.
+
+#### `aeadParams.iv`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* Type: {ArrayBuffer|TypedArray|DataView|Buffer}
+
+The initialization vector must be unique for every encryption operation using a
+given key.
+
+Ideally, this is a deterministic 12-byte value that is computed in such a way
+that it is guaranteed to be unique across all invocations that use the same key.
+Alternatively, the initialization vector may consist of at least 12
+cryptographically random bytes. 
+
+#### `aeadParams.name`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* Type: {string} Must be `'AES-OCB'`.
+
+#### `aeadParams.tagLength`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* Type: {number} The size in bits of the generated authentication tag.
+  This values must be one of `64`, `96`, or `128`. **Default:** `128`.
+
 ### Class: `AesGcmParams`
 
 <!-- YAML
@@ -1179,8 +1240,8 @@ or `256`.
 added: v15.0.0
 -->
 
-* Type: {string} Must be one of `'AES-CBC'`, `'AES-CTR'`, `'AES-GCM'`, or
-  `'AES-KW'`
+* Type: {string} Must be one of `'AES-CBC'`, `'AES-CTR'`, `'AES-GCM'`,
+  `'AES-KW'`, or `'AES-OCB'`.
 
 ### Class: `EcdhKeyDeriveParams`
 

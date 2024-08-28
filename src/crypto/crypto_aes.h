@@ -27,7 +27,10 @@ constexpr const char* kDefaultWrapIV = "\xa6\xa6\xa6\xa6\xa6\xa6\xa6\xa6";
   V(GCM_256, AES_Cipher, NID_aes_256_gcm)                                      \
   V(KW_128, AES_Cipher, NID_id_aes128_wrap)                                    \
   V(KW_192, AES_Cipher, NID_id_aes192_wrap)                                    \
-  V(KW_256, AES_Cipher, NID_id_aes256_wrap)
+  V(KW_256, AES_Cipher, NID_id_aes256_wrap)                                    \
+  V(OCB_128, AES_Cipher, NID_aes_128_ocb)                                      \
+  V(OCB_192, AES_Cipher, NID_aes_192_ocb)                                      \
+  V(OCB_256, AES_Cipher, NID_aes_256_ocb)
 
 enum AESKeyVariant {
 #define V(name, _, __) kKeyVariantAES_##name,

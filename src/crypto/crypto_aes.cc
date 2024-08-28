@@ -27,7 +27,7 @@ using v8::Value;
 
 namespace crypto {
 namespace {
-// Implements general AES encryption and decryption for CBC
+// Implements general AES encryption and decryption.
 // The key_data must be a secret key.
 // On success, this function sets out to a new ByteSource
 // instance containing the results and returns WebCryptoCipherStatus::OK.
@@ -61,17 +61,55 @@ WebCryptoCipherStatus AES_Cipher(
     return WebCryptoCipherStatus::FAILED;
   }
 
-  if (mode == EVP_CIPH_GCM_MODE && !EVP_CIPHER_CTX_ctrl(
-        ctx.get(),
-        EVP_CTRL_AEAD_SET_IVLEN,
-        params.iv.size(),
-        nullptr)) {
+  size_t tag_len = 0;
+
+  if (mode == EVP_CIPH_GCM_MODE || mode == EVP_CIPH_OCB_MODE) {
+    switch (cipher_mode) {
+      case kWebCryptoCipherDecrypt:
+        // If in decrypt mode, the auth tag must be set in the params.tag.
+        CHECK(params.tag);
+        tag_len = params.tag.size();
+
+        if (mode == EVP_CIPH_OCB_MODE) {
+          if (!EVP_CIPHER_CTX_ctrl(
+                  ctx.get(), EVP_CTRL_AEAD_SET_TAG, tag_len, nullptr))
+            return WebCryptoCipherStatus::FAILED;
+        }
+
+        if (!EVP_CIPHER_CTX_ctrl(ctx.get(),
+                                 EVP_CTRL_AEAD_SET_TAG,
+                                 tag_len,
+                                 const_cast<char*>(params.tag.data<char>()))) {
+          return WebCryptoCipherStatus::FAILED;
+        }
+        break;
+      case kWebCryptoCipherEncrypt:
+        // In encrypt mode, we grab the tag length here. We'll use it to
+        // ensure that that allocated buffer has enough room for both the
+        // final block and the auth tag. Unlike our other AES-GCM implementation
+        // in CipherBase, in WebCrypto, the auth tag is concatenated to the end
+        // of the generated ciphertext and returned in the same ArrayBuffer.
+        tag_len = params.length;
+
+        if (mode == EVP_CIPH_OCB_MODE) {
+          if (!EVP_CIPHER_CTX_ctrl(
+                  ctx.get(), EVP_CTRL_AEAD_SET_TAG, tag_len, nullptr))
+            return WebCryptoCipherStatus::FAILED;
+        }
+        break;
+      default:
+        UNREACHABLE();
+    }
+  }
+
+  if ((mode == EVP_CIPH_GCM_MODE || mode == EVP_CIPH_OCB_MODE) &&
+      !EVP_CIPHER_CTX_ctrl(
+          ctx.get(), EVP_CTRL_AEAD_SET_IVLEN, params.iv.size(), nullptr)) {
     return WebCryptoCipherStatus::FAILED;
   }
 
-  if (!EVP_CIPHER_CTX_set_key_length(
-          ctx.get(),
-          key_data->GetSymmetricKeySize()) ||
+  if (!EVP_CIPHER_CTX_set_key_length(ctx.get(),
+                                     key_data->GetSymmetricKeySize()) ||
       !EVP_CipherInit_ex(
           ctx.get(),
           nullptr,
@@ -82,45 +120,17 @@ WebCryptoCipherStatus AES_Cipher(
     return WebCryptoCipherStatus::FAILED;
   }
 
-  size_t tag_len = 0;
-
-  if (mode == EVP_CIPH_GCM_MODE) {
-    switch (cipher_mode) {
-      case kWebCryptoCipherDecrypt:
-        // If in decrypt mode, the auth tag must be set in the params.tag.
-        CHECK(params.tag);
-        if (!EVP_CIPHER_CTX_ctrl(ctx.get(),
-                                 EVP_CTRL_AEAD_SET_TAG,
-                                 params.tag.size(),
-                                 const_cast<char*>(params.tag.data<char>()))) {
-          return WebCryptoCipherStatus::FAILED;
-        }
-        break;
-      case kWebCryptoCipherEncrypt:
-        // In decrypt mode, we grab the tag length here. We'll use it to
-        // ensure that that allocated buffer has enough room for both the
-        // final block and the auth tag. Unlike our other AES-GCM implementation
-        // in CipherBase, in WebCrypto, the auth tag is concatenated to the end
-        // of the generated ciphertext and returned in the same ArrayBuffer.
-        tag_len = params.length;
-        break;
-      default:
-        UNREACHABLE();
-    }
-  }
-
   size_t total = 0;
   int buf_len = in.size() + EVP_CIPHER_CTX_block_size(ctx.get()) + tag_len;
   int out_len;
 
-  if (mode == EVP_CIPH_GCM_MODE &&
+  if ((mode == EVP_CIPH_GCM_MODE || mode == EVP_CIPH_OCB_MODE) &&
       params.additional_data.size() &&
-      !EVP_CipherUpdate(
-            ctx.get(),
-            nullptr,
-            &out_len,
-            params.additional_data.data<unsigned char>(),
-            params.additional_data.size())) {
+      !EVP_CipherUpdate(ctx.get(),
+                        nullptr,
+                        &out_len,
+                        params.additional_data.data<unsigned char>(),
+                        params.additional_data.size())) {
     return WebCryptoCipherStatus::FAILED;
   }
 
@@ -153,9 +163,10 @@ WebCryptoCipherStatus AES_Cipher(
   }
   total += out_len;
 
-  // If using AES_GCM, grab the generated auth tag and append
+  // If using AES_GCM or AES_OCB, grab the generated auth tag and append
   // it to the end of the ciphertext.
-  if (cipher_mode == kWebCryptoCipherEncrypt && mode == EVP_CIPH_GCM_MODE) {
+  if (cipher_mode == kWebCryptoCipherEncrypt &&
+      (mode == EVP_CIPH_GCM_MODE || mode == EVP_CIPH_OCB_MODE)) {
     if (!EVP_CIPHER_CTX_ctrl(ctx.get(),
                              EVP_CTRL_AEAD_GET_TAG,
                              tag_len,
@@ -490,23 +501,31 @@ Maybe<bool> AESCipherTraits::AdditionalConfig(
     return Nothing<bool>();
   }
 
-  int cipher_op_mode = EVP_CIPHER_mode(params->cipher);
-  if (cipher_op_mode != EVP_CIPH_WRAP_MODE) {
-    if (!ValidateIV(env, mode, args[offset + 1], params)) {
-      return Nothing<bool>();
-    }
-    if (cipher_op_mode == EVP_CIPH_CTR_MODE) {
-      if (!ValidateCounter(env, args[offset + 2], params)) {
+  switch (EVP_CIPHER_mode(params->cipher)) {
+    case EVP_CIPH_CTR_MODE:
+      if (!ValidateIV(env, mode, args[offset + 1], params) ||
+          !ValidateCounter(env, args[offset + 2], params)) {
         return Nothing<bool>();
       }
-    } else if (cipher_op_mode == EVP_CIPH_GCM_MODE) {
-      if (!ValidateAuthTag(env, mode, cipher_mode, args[offset + 2], params) ||
+      break;
+    case EVP_CIPH_CBC_MODE:
+      if (!ValidateIV(env, mode, args[offset + 1], params)) {
+        return Nothing<bool>();
+      }
+      break;
+    case EVP_CIPH_GCM_MODE:
+    case EVP_CIPH_OCB_MODE:
+      if (!ValidateIV(env, mode, args[offset + 1], params) ||
+          !ValidateAuthTag(env, mode, cipher_mode, args[offset + 2], params) ||
           !ValidateAdditionalData(env, mode, args[offset + 3], params)) {
         return Nothing<bool>();
       }
-    }
-  } else {
-    UseDefaultIV(params);
+      break;
+    case EVP_CIPH_WRAP_MODE:
+      UseDefaultIV(params);
+      break;
+    default:
+      UNREACHABLE();
   }
 
   if (params->iv.size() <
