@@ -393,15 +393,15 @@ const vectors = {
       'RSASSA-PKCS1-v1_5',
       1024,
       Buffer.from([1, 0, 1]),
-      'SHA-256',
+      'SHA-1',
       ['sign'],
       ['verify'],
     ],
     [
       'RSA-PSS',
-      2048,
+      1024,
       Buffer.from([1, 0, 1]),
-      'SHA-512',
+      'SHA-256',
       ['sign'],
       ['verify'],
     ],
@@ -409,7 +409,7 @@ const vectors = {
       'RSA-OAEP',
       1024,
       Buffer.from([3]),
-      'SHA-384',
+      'SHA3-256',
       ['decrypt', 'unwrapKey'],
       ['encrypt', 'wrapKey'],
     ],
@@ -571,6 +571,9 @@ const vectors = {
         case 'SHA-256': length = 512; break;
         case 'SHA-384': length = 1024; break;
         case 'SHA-512': length = 1024; break;
+        case 'SHA3-256': length = 1088; break;
+        case 'SHA3-384': length = 832; break;
+        case 'SHA3-512': length = 576; break;
       }
     }
 
@@ -601,6 +604,9 @@ const vectors = {
     [ undefined, 'SHA-256', ['sign', 'verify']],
     [ undefined, 'SHA-384', ['sign', 'verify']],
     [ undefined, 'SHA-512', ['sign', 'verify']],
+    [ undefined, 'SHA3-256', ['sign', 'verify']],
+    [ undefined, 'SHA3-384', ['sign', 'verify']],
+    [ undefined, 'SHA3-512', ['sign', 'verify']],
     [ 128, 'SHA-256', ['sign', 'verify']],
     [ 1024, 'SHA-512', ['sign', 'verify']],
   ];
