@@ -900,6 +900,23 @@ The algorithms currently supported include:
 * `'Ed448'` <span class="experimental-inline"></span>[^1]
 * `'HMAC'`
 
+### `subtle.supports(operation, algorithm[, lengthOrAdditionalAlgorithm])`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+<!--lint disable maximum-line-length remark-lint-->
+
+* `operation`: {string\[]}
+* `algorithm`: {AlgorithmIdentifier}
+* `lengthOrAdditionalAlgorithm`: {number|AlgorithmIdentifier}
+* Returns: {boolean}
+
+<!--lint enable maximum-line-length remark-lint-->
+
+Used to determine whether the implementation supports a given operation using the specified algorithm.
+
 ### `subtle.unwrapKey(format, wrappedKey, unwrappingKey, unwrapAlgo, unwrappedKeyAlgo, extractable, keyUsages)`
 
 <!-- YAML
