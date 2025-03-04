@@ -378,6 +378,8 @@ implementation and the APIs supported for each:
 | `'SHA-256'`                                             |               |             |             |           |           |           |             |              |             |        |          | ✔        |
 | `'SHA-384'`                                             |               |             |             |           |           |           |             |              |             |        |          | ✔        |
 | `'SHA-512'`                                             |               |             |             |           |           |           |             |              |             |        |          | ✔        |
+| `'cSHAKE128'` <span class="experimental-inline"></span>[^2] |               |             |             |           |           |           |             |              |             |        |          | ✔        |
+| `'cSHAKE256'` <span class="experimental-inline"></span>[^2] |               |             |             |           |           |           |             |              |             |        |          | ✔        |
 
 ## Class: `Crypto`
 
@@ -1671,8 +1673,12 @@ The length (in bytes) of the random salt to use.
 [^1]: An experimental implementation of Ed448 and X448 algorithms from
     [Secure Curves in the Web Cryptography API][] as of 21 October 2024
 
+[^2]: An experimental implementation of
+    [Modern Algorithms in the Web Cryptography API][] as of 8 January 2025
+
 [JSON Web Key]: https://tools.ietf.org/html/rfc7517
 [Key usages]: #cryptokeyusages
+[Modern Algorithms in the Web Cryptography API]: https://twiss.github.io/webcrypto-modern-algos/
 [NIST SP 800-38D]: https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf
 [RFC 4122]: https://www.rfc-editor.org/rfc/rfc4122.txt
 [Secure Curves in the Web Cryptography API]: https://wicg.github.io/webcrypto-secure-curves/
