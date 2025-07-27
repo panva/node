@@ -29,6 +29,11 @@
 #endif  // OPENSSL_FIPS
 
 #if OPENSSL_VERSION_MAJOR >= 3
+#if OPENSSL_VERSION_MINOR >= 5
+# define EVP_PKEY_ML_KEM_512    NID_ML_KEM_512
+# define EVP_PKEY_ML_KEM_768    NID_ML_KEM_768
+# define EVP_PKEY_ML_KEM_1024   NID_ML_KEM_1024
+#endif
 #define OSSL3_CONST const
 #else
 #define OSSL3_CONST
