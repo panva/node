@@ -29,6 +29,9 @@
 #endif  // OPENSSL_FIPS
 
 #if OPENSSL_VERSION_MAJOR >= 3
+#if OPENSSL_VERSION_MINOR >= 5
+#include <crypto/ml_kem.h>
+#endif
 #define OSSL3_CONST const
 #else
 #define OSSL3_CONST

@@ -11,6 +11,9 @@
 #include <cstring>
 #if OPENSSL_VERSION_MAJOR >= 3
 #include <openssl/provider.h>
+#if OPENSSL_VERSION_MINOR >= 5
+#include <crypto/ml_kem.h>
+#endif
 #endif
 
 // EVP_PKEY_CTX_set_dsa_paramgen_q_bits was added in OpenSSL 1.1.1e.
@@ -1949,6 +1952,9 @@ int EVPKeyPointer::id(const EVP_PKEY* key) {
     if (EVP_PKEY_is_a(key, "ML-DSA-44")) return EVP_PKEY_ML_DSA_44;
     if (EVP_PKEY_is_a(key, "ML-DSA-65")) return EVP_PKEY_ML_DSA_65;
     if (EVP_PKEY_is_a(key, "ML-DSA-87")) return EVP_PKEY_ML_DSA_87;
+    if (EVP_PKEY_is_a(key, "ML-KEM-512")) return EVP_PKEY_ML_KEM_512;
+    if (EVP_PKEY_is_a(key, "ML-KEM-768")) return EVP_PKEY_ML_KEM_768;
+    if (EVP_PKEY_is_a(key, "ML-KEM-1024")) return EVP_PKEY_ML_KEM_1024;
   }
 #endif
   return type;

@@ -108,3 +108,61 @@ for (const [asymmetricKeyType, pubLen] of [
     }
   }
 }
+
+// ML-KEM
+for (const asymmetricKeyType of ['ml-kem-512', 'ml-kem-768', 'ml-kem-1024']) {
+  const keys = {
+    public: fixtures.readKey(getKeyFileName(asymmetricKeyType, 'public'), 'ascii'),
+    private: fixtures.readKey(getKeyFileName(asymmetricKeyType, 'private'), 'ascii'),
+    private_seed_only: fixtures.readKey(getKeyFileName(asymmetricKeyType, 'private_seed_only'), 'ascii'),
+    private_priv_only: fixtures.readKey(getKeyFileName(asymmetricKeyType, 'private_priv_only'), 'ascii'),
+  };
+
+  function assertKey(key) {
+    assert.deepStrictEqual(key.asymmetricKeyDetails, {});
+    assert.strictEqual(key.asymmetricKeyType, asymmetricKeyType);
+    assert.strictEqual(key.equals(key), true);
+    assert.deepStrictEqual(key, key);
+  }
+
+  function assertPublicKey(key) {
+    assertKey(key);
+    assert.strictEqual(key.type, 'public');
+    assert.strictEqual(key.export({ format: 'pem', type: 'spki' }), keys.public);
+    key.export({ format: 'der', type: 'spki' });
+    assert.throws(() => key.export({ format: 'jwk' }),
+                  { code: 'ERR_CRYPTO_JWK_UNSUPPORTED_KEY_TYPE', message: 'Unsupported JWK Key Type.' });
+  }
+
+  function assertPrivateKey(key, hasSeed) {
+    assertKey(key);
+    assert.strictEqual(key.type, 'private');
+    assertPublicKey(createPublicKey(key));
+    key.export({ format: 'der', type: 'pkcs8' });
+    if (hasSeed) {
+      assert.strictEqual(key.export({ format: 'pem', type: 'pkcs8' }), keys.private);
+    } else {
+      assert.strictEqual(key.export({ format: 'pem', type: 'pkcs8' }), keys.private_priv_only);
+    }
+    assert.throws(() => key.export({ format: 'jwk' }),
+                  { code: 'ERR_CRYPTO_JWK_UNSUPPORTED_KEY_TYPE', message: 'Unsupported JWK Key Type.' });
+  }
+
+  const publicKey = createPublicKey(keys.public);
+  assertPublicKey(publicKey);
+  // TODO(@panva): test public JWK import
+
+  {
+    for (const [pem, hasSeed] of [
+      [keys.private, true],
+      [keys.private_seed_only, true],
+      [keys.private_priv_only, false],
+    ]) {
+      const pubFromPriv = createPublicKey(pem);
+      assertPublicKey(pubFromPriv);
+      assertPrivateKey(createPrivateKey(pem), hasSeed);
+      assert.strictEqual(pubFromPriv.equals(publicKey), true);
+      assert.deepStrictEqual(pubFromPriv, publicKey);
+    }
+  }
+}

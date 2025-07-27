@@ -1918,6 +1918,9 @@ added: v11.6.0
 changes:
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/00000
+    description: Add support for ML-KEM keys.
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/00000
     description: Add support for ML-DSA keys.
   - version:
     - v14.5.0
@@ -2026,6 +2029,9 @@ added: v11.6.0
 changes:
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/00000
+    description: Add support for ML-KEM keys.
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/00000
     description: Add support for ML-DSA keys.
   - version:
      - v13.9.0
@@ -2064,6 +2070,9 @@ types are:
 * `'ml-dsa-44'`[^openssl35] (OID 2.16.840.1.101.3.4.3.17)
 * `'ml-dsa-65'`[^openssl35] (OID 2.16.840.1.101.3.4.3.18)
 * `'ml-dsa-87'`[^openssl35] (OID 2.16.840.1.101.3.4.3.19)
+* `'ml-kem-512'`[^openssl35] (OID 2.16.840.1.101.3.4.4.1)
+* `'ml-kem-768'`[^openssl35] (OID 2.16.840.1.101.3.4.4.2)
+* `'ml-kem-1024'`[^openssl35] (OID 2.16.840.1.101.3.4.4.3)
 
 This property is `undefined` for unrecognized `KeyObject` types and symmetric
 keys.
@@ -2133,6 +2142,8 @@ encrypted private keys. Since PKCS#8 defines its own
 encryption mechanism, PEM-level encryption is not supported when encrypting
 a PKCS#8 key. See [RFC 5208][] for PKCS#8 encryption and [RFC 1421][] for
 PKCS#1 and SEC1 encryption.
+
+Note: ML-KEM keys JWK export is not yet supported.
 
 ### `keyObject.symmetricKeySize`
 
@@ -3414,6 +3425,9 @@ added: v11.6.0
 changes:
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/00000
+    description: Add support for ML-KEM keys.
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/00000
     description: Add support for ML-DSA keys.
   - version: v15.12.0
     pr-url: https://github.com/nodejs/node/pull/37254
@@ -3446,13 +3460,16 @@ must be an object with the properties described above.
 If the private key is encrypted, a `passphrase` must be specified. The length
 of the passphrase is limited to 1024 bytes.
 
-Note: ML-DSA keys JWK import is not yet supported.
+Note: ML-DSA and ML-KEM keys JWK import is not yet supported.
 
 ### `crypto.createPublicKey(key)`
 
 <!-- YAML
 added: v11.6.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/00000
+    description: Add support for ML-KEM keys.
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/00000
     description: Add support for ML-DSA keys.
@@ -3501,7 +3518,7 @@ extracted from the returned `KeyObject`. Similarly, if a `KeyObject` with type
 `'private'` is given, a new `KeyObject` with type `'public'` will be returned
 and it will be impossible to extract the private key from the returned object.
 
-Note: ML-DSA keys JWK import is not yet supported.
+Note: ML-DSA and ML-KEM keys JWK import is not yet supported.
 
 ### `crypto.createSecretKey(key[, encoding])`
 
@@ -3669,6 +3686,9 @@ added: v10.12.0
 changes:
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/00000
+    description: Add support for ML-KEM key pairs.
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/00000
     description: Add support for ML-DSA key pairs.
   - version: v18.0.0
     pr-url: https://github.com/nodejs/node/pull/41678
@@ -3789,6 +3809,9 @@ a `Promise` for an `Object` with `publicKey` and `privateKey` properties.
 <!-- YAML
 added: v10.12.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/00000
+    description: Add support for ML-KEM key pairs.
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/00000
     description: Add support for ML-DSA key pairs.
