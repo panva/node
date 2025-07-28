@@ -1952,6 +1952,18 @@ int EVPKeyPointer::id(const EVP_PKEY* key) {
     if (EVP_PKEY_is_a(key, "ML-KEM-512")) return EVP_PKEY_ML_KEM_512;
     if (EVP_PKEY_is_a(key, "ML-KEM-768")) return EVP_PKEY_ML_KEM_768;
     if (EVP_PKEY_is_a(key, "ML-KEM-1024")) return EVP_PKEY_ML_KEM_1024;
+    if (EVP_PKEY_is_a(key, "SLH-DSA-SHA2-128S")) return EVP_PKEY_SLH_DSA_SHA2_128S;
+    if (EVP_PKEY_is_a(key, "SLH-DSA-SHA2-128F")) return EVP_PKEY_SLH_DSA_SHA2_128F;
+    if (EVP_PKEY_is_a(key, "SLH-DSA-SHA2-192S")) return EVP_PKEY_SLH_DSA_SHA2_192S;
+    if (EVP_PKEY_is_a(key, "SLH-DSA-SHA2-192F")) return EVP_PKEY_SLH_DSA_SHA2_192F;
+    if (EVP_PKEY_is_a(key, "SLH-DSA-SHA2-256S")) return EVP_PKEY_SLH_DSA_SHA2_256S;
+    if (EVP_PKEY_is_a(key, "SLH-DSA-SHA2-256F")) return EVP_PKEY_SLH_DSA_SHA2_256F;
+    if (EVP_PKEY_is_a(key, "SLH-DSA-SHAKE-128S")) return EVP_PKEY_SLH_DSA_SHAKE_128S;
+    if (EVP_PKEY_is_a(key, "SLH-DSA-SHAKE-128F")) return EVP_PKEY_SLH_DSA_SHAKE_128F;
+    if (EVP_PKEY_is_a(key, "SLH-DSA-SHAKE-192S")) return EVP_PKEY_SLH_DSA_SHAKE_192S;
+    if (EVP_PKEY_is_a(key, "SLH-DSA-SHAKE-192F")) return EVP_PKEY_SLH_DSA_SHAKE_192F;
+    if (EVP_PKEY_is_a(key, "SLH-DSA-SHAKE-256S")) return EVP_PKEY_SLH_DSA_SHAKE_256S;
+    if (EVP_PKEY_is_a(key, "SLH-DSA-SHAKE-256F")) return EVP_PKEY_SLH_DSA_SHAKE_256F;
   }
 #endif
   return type;
