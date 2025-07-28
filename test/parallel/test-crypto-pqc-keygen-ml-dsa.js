@@ -6,16 +6,19 @@ if (!common.hasCrypto)
 
 const { hasOpenSSL } = require('../common/crypto');
 
-if (!hasOpenSSL(3, 5))
-  common.skip('requires OpenSSL 3.5');
-
 const assert = require('assert');
 const {
   generateKeyPair,
 } = require('crypto');
 
-// ML-DSA
-{
+if (!hasOpenSSL(3, 5)) {
+  for (const asymmetricKeyType of ['ml-dsa-44', 'ml-dsa-65', 'ml-dsa-87']) {
+    assert.throws(() => generateKeyPair(asymmetricKeyType, common.mustNotCall()), {
+      code: 'ERR_INVALID_ARG_VALUE',
+      message: /The argument 'type' must be a supported key type/
+    });
+  }
+} else {
   for (const [asymmetricKeyType, pubLen] of [
     ['ml-dsa-44', 1312], ['ml-dsa-65', 1952], ['ml-dsa-87', 2592],
   ]) {

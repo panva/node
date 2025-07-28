@@ -6,9 +6,6 @@ if (!common.hasCrypto)
 
 const { hasOpenSSL } = require('../common/crypto');
 
-if (!hasOpenSSL(3, 5))
-  common.skip('requires OpenSSL 3.5');
-
 const assert = require('assert');
 const {
   createPublicKey,
@@ -83,20 +80,32 @@ for (const [asymmetricKeyType, pubLen] of [
     }
   }
 
-  const publicKey = createPublicKey(keys.public);
-  assertPublicKey(publicKey);
+  if (!hasOpenSSL(3, 5)) {
+    assert.throws(() => createPublicKey(keys.public), {
+      code: hasOpenSSL(3) ? 'ERR_OSSL_EVP_DECODE_ERROR' : 'ERR_OSSL_EVP_UNSUPPORTED_ALGORITHM',
+    });
 
-  {
-    for (const [pem, hasSeed] of [
-      [keys.private, true],
-      [keys.private_seed_only, true],
-      [keys.private_priv_only, false],
-    ]) {
-      const pubFromPriv = createPublicKey(pem);
-      assertPublicKey(pubFromPriv);
-      assertPrivateKey(createPrivateKey(pem), hasSeed);
-      assert.strictEqual(pubFromPriv.equals(publicKey), true);
-      assert.deepStrictEqual(pubFromPriv, publicKey);
+    for (const pem of [keys.private, keys.private_seed_only, keys.private_priv_only]) {
+      assert.throws(() => createPrivateKey(pem), {
+        code: hasOpenSSL(3) ? 'ERR_OSSL_UNSUPPORTED' : 'ERR_OSSL_EVP_UNSUPPORTED_ALGORITHM',
+      });
+    }
+  } else {
+    const publicKey = createPublicKey(keys.public);
+    assertPublicKey(publicKey);
+
+    {
+      for (const [pem, hasSeed] of [
+        [keys.private, true],
+        [keys.private_seed_only, true],
+        [keys.private_priv_only, false],
+      ]) {
+        const pubFromPriv = createPublicKey(pem);
+        assertPublicKey(pubFromPriv);
+        assertPrivateKey(createPrivateKey(pem), hasSeed);
+        assert.strictEqual(pubFromPriv.equals(publicKey), true);
+        assert.deepStrictEqual(pubFromPriv, publicKey);
+      }
     }
   }
 }
@@ -140,20 +149,32 @@ for (const asymmetricKeyType of ['ml-kem-512', 'ml-kem-768', 'ml-kem-1024']) {
                   { code: 'ERR_CRYPTO_JWK_UNSUPPORTED_KEY_TYPE', message: 'Unsupported JWK Key Type.' });
   }
 
-  const publicKey = createPublicKey(keys.public);
-  assertPublicKey(publicKey);
+  if (!hasOpenSSL(3, 5)) {
+    assert.throws(() => createPublicKey(keys.public), {
+      code: hasOpenSSL(3) ? 'ERR_OSSL_EVP_DECODE_ERROR' : 'ERR_OSSL_EVP_UNSUPPORTED_ALGORITHM',
+    });
 
-  {
-    for (const [pem, hasSeed] of [
-      [keys.private, true],
-      [keys.private_seed_only, true],
-      [keys.private_priv_only, false],
-    ]) {
-      const pubFromPriv = createPublicKey(pem);
-      assertPublicKey(pubFromPriv);
-      assertPrivateKey(createPrivateKey(pem), hasSeed);
-      assert.strictEqual(pubFromPriv.equals(publicKey), true);
-      assert.deepStrictEqual(pubFromPriv, publicKey);
+    for (const pem of [keys.private, keys.private_seed_only, keys.private_priv_only]) {
+      assert.throws(() => createPrivateKey(pem), {
+        code: hasOpenSSL(3) ? 'ERR_OSSL_UNSUPPORTED' : 'ERR_OSSL_EVP_UNSUPPORTED_ALGORITHM',
+      });
+    }
+  } else {
+    const publicKey = createPublicKey(keys.public);
+    assertPublicKey(publicKey);
+
+    {
+      for (const [pem, hasSeed] of [
+        [keys.private, true],
+        [keys.private_seed_only, true],
+        [keys.private_priv_only, false],
+      ]) {
+        const pubFromPriv = createPublicKey(pem);
+        assertPublicKey(pubFromPriv);
+        assertPrivateKey(createPrivateKey(pem), hasSeed);
+        assert.strictEqual(pubFromPriv.equals(publicKey), true);
+        assert.deepStrictEqual(pubFromPriv, publicKey);
+      }
     }
   }
 }

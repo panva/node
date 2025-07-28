@@ -6,16 +6,19 @@ if (!common.hasCrypto)
 
 const { hasOpenSSL } = require('../common/crypto');
 
-if (!hasOpenSSL(3, 5))
-  common.skip('requires OpenSSL 3.5');
-
 const assert = require('assert');
 const {
   generateKeyPair,
 } = require('crypto');
 
-// ML-KEM
-{
+if (!hasOpenSSL(3, 5)) {
+  for (const asymmetricKeyType of ['ml-kem-512', 'ml-kem-768', 'ml-kem-1024']) {
+    assert.throws(() => generateKeyPair(asymmetricKeyType, common.mustNotCall()), {
+      code: 'ERR_INVALID_ARG_VALUE',
+      message: /The argument 'type' must be a supported key type/
+    });
+  }
+} else {
   for (const asymmetricKeyType of ['ml-kem-512', 'ml-kem-768', 'ml-kem-1024']) {
     for (const [publicKeyEncoding, validate] of [
       [undefined, (publicKey) => {
