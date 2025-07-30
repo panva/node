@@ -1122,32 +1122,6 @@ std::unique_ptr<worker::TransferData> NativeKeyObject::CloneForMessaging()
   return std::make_unique<KeyObjectTransferData>(handle_data_);
 }
 
-WebCryptoKeyExportStatus PKEY_SPKI_Export(const KeyObjectData& key_data,
-                                          ByteSource* out) {
-  CHECK_EQ(key_data.GetKeyType(), kKeyTypePublic);
-  Mutex::ScopedLock lock(key_data.mutex());
-  auto bio = key_data.GetAsymmetricKey().derPublicKey();
-  if (!bio) return WebCryptoKeyExportStatus::FAILED;
-  *out = ByteSource::FromBIO(bio);
-  return WebCryptoKeyExportStatus::OK;
-}
-
-WebCryptoKeyExportStatus PKEY_PKCS8_Export(const KeyObjectData& key_data,
-                                           ByteSource* out) {
-  CHECK_EQ(key_data.GetKeyType(), kKeyTypePrivate);
-  Mutex::ScopedLock lock(key_data.mutex());
-  const auto& m_pkey = key_data.GetAsymmetricKey();
-
-  auto bio = BIOPointer::NewMem();
-  CHECK(bio);
-  PKCS8Pointer p8inf(EVP_PKEY2PKCS8(m_pkey.get()));
-  if (!i2d_PKCS8_PRIV_KEY_INFO_bio(bio.get(), p8inf.get()))
-    return WebCryptoKeyExportStatus::FAILED;
-
-  *out = ByteSource::FromBIO(bio);
-  return WebCryptoKeyExportStatus::OK;
-}
-
 namespace Keys {
 void Initialize(Environment* env, Local<Object> target) {
   target->Set(env->context(),
@@ -1172,10 +1146,6 @@ void Initialize(Environment* env, Local<Object> target) {
   constexpr auto kSigEncDER = DSASigEnc::DER;
   constexpr auto kSigEncP1363 = DSASigEnc::P1363;
 
-  NODE_DEFINE_CONSTANT(target, kWebCryptoKeyFormatRaw);
-  NODE_DEFINE_CONSTANT(target, kWebCryptoKeyFormatPKCS8);
-  NODE_DEFINE_CONSTANT(target, kWebCryptoKeyFormatSPKI);
-  NODE_DEFINE_CONSTANT(target, kWebCryptoKeyFormatJWK);
   NODE_DEFINE_CONSTANT(target, EVP_PKEY_ED25519);
   NODE_DEFINE_CONSTANT(target, EVP_PKEY_ED448);
   NODE_DEFINE_CONSTANT(target, EVP_PKEY_X25519);
