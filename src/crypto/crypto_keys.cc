@@ -966,6 +966,9 @@ void KeyObjectHandle::Export(const FunctionCallbackInfo<Value>& args) {
       return;
     }
     CHECK_EQ(offset, static_cast<unsigned int>(args.Length()));
+
+    // TODO(@panva): when called from webcrypto ensure that EC SPKI is always uncompressed
+
     if (key->ExportPublicKey(config).ToLocal(&result)) [[likely]] {
       args.GetReturnValue().Set(result);
     }
