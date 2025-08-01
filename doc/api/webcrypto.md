@@ -105,6 +105,10 @@ Key Formats:
 
 Methods:
 
+* [`subtle.decapsulateBits()`][]
+* [`subtle.decapsulateKey()`][]
+* [`subtle.encapsulateBits()`][]
+* [`subtle.encapsulateKey()`][]
 * [`SubtleCrypto.supports()`][]
 
 ## Secure Curves in the Web Cryptography API
@@ -686,6 +690,35 @@ Allows feature detection in Web Crypto API, which can be used to detect whether
 a given algorithm identifier (including any of its parameters) is supported for
 the given operation.
 
+### `subtle.decapsulateBits(decapsulationAlgorithm, decapsulationKey, ciphertext)`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+> Stability: 1.1 - Active development
+
+* `decapsulationAlgorithm` {string|Algorithm}
+* `decapsulationKey` {CryptoKey}
+* `ciphertext` {ArrayBuffer|TypedArray|DataView|Buffer}
+* Returns: {Promise} Fulfills with {ArrayBuffer} upon success.
+
+### `subtle.decapsulateKey(decapsulationAlgorithm, decapsulationKey, ciphertext, sharedKeyAlgorithm, extractable, usages)`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+> Stability: 1.1 - Active development
+
+* `decapsulationAlgorithm` {string|Algorithm}
+* `decapsulationKey` {CryptoKey}
+* `ciphertext` {ArrayBuffer|TypedArray|DataView|Buffer}
+* `sharedKeyAlgorithm` {string|Algorithm|HmacImportParams|AesDerivedKeyParams}
+* `extractable` {boolean}
+* `usages` {string\[]} See [Key usages][].
+* Returns: {Promise} Fulfills with {CryptoKey} upon success.
+
 ### `subtle.decrypt(algorithm, key, data)`
 
 <!-- YAML
@@ -819,6 +852,33 @@ If `algorithm` is provided as a {string}, it must be one of:
 
 If `algorithm` is provided as an {Object}, it must have a `name` property
 whose value is one of the above.
+
+### `subtle.encapsulateBits(encapsulationAlgorithm, encapsulationKey)`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+> Stability: 1.1 - Active development
+
+* `encapsulationAlgorithm` {string|Algorithm}
+* `encapsulationKey` {CryptoKey}
+* Returns: {Promise} Fulfills with {EncapsulatedBits} upon success.
+
+### `subtle.encapsulateKey(encapsulationAlgorithm, encapsulationKey, sharedKeyAlgorithm, extractable, usages)`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+> Stability: 1.1 - Active development
+
+* `encapsulationAlgorithm` {string|Algorithm}
+* `encapsulationKey` {CryptoKey}
+* `sharedKeyAlgorithm` {string|Algorithm|HmacImportParams|AesDerivedKeyParams}
+* `extractable` {boolean}
+* `usages` {string\[]} See [Key usages][].
+* Returns: {Promise} Fulfills with {EncapsulatedKey} upon success.
 
 ### `subtle.encrypt(algorithm, key, data)`
 
@@ -1572,6 +1632,50 @@ the message.
 The Node.js Web Crypto API implementation only supports zero-length context
 which is equivalent to not providing context at all.
 
+### Class: `EncapsulatedBits`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+#### `encapsulatedBits.ciphertext`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* Type: {ArrayBuffer}
+
+#### `encapsulatedBits.sharedKey`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* Type: {ArrayBuffer}
+
+### Class: `EncapsulatedKey`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+#### `encapsulatedKey.ciphertext`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* Type: {ArrayBuffer}
+
+#### `encapsulatedKey.sharedKey`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* Type: {CryptoKey}
+
 ### Class: `HkdfParams`
 
 <!-- YAML
@@ -2011,3 +2115,7 @@ The length (in bytes) of the random salt to use.
 [Secure Curves in the Web Cryptography API]: #secure-curves-in-the-web-cryptography-api
 [Web Crypto API]: https://www.w3.org/TR/WebCryptoAPI/
 [`SubtleCrypto.supports()`]: #static-method-subtlecryptosupportsoperation-algorithm-lengthoradditionalalgorithm
+[`subtle.decapsulateBits()`]: #subtledecapsulatebitsdecapsulationalgorithm-decapsulationkey-ciphertext
+[`subtle.decapsulateKey()`]: #subtledecapsulatekeydecapsulationalgorithm-decapsulationkey-ciphertext-sharedkeyalgorithm-extractable-usages
+[`subtle.encapsulateBits()`]: #subtleencapsulatebitsencapsulationalgorithm-encapsulationkey
+[`subtle.encapsulateKey()`]: #subtleencapsulatekeyencapsulationalgorithm-encapsulationkey-sharedkeyalgorithm-extractable-usages
