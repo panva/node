@@ -22,46 +22,36 @@ for await (const mod of sources) {
   }
 }
 
-if (vectors.sign) vectors.verify = vectors.sign;
-if (vectors.encrypt) vectors.decrypt = vectors.encrypt;
-if (vectors.encapsulateBits) vectors.decapsulateBits = vectors.encapsulateBits;
+vectors.verify = vectors.sign;
+vectors.decrypt = vectors.encrypt;
+vectors.decapsulateBits = vectors.encapsulateBits;
 
-if (vectors.encrypt && vectors.exportKey) {
-  for (const enc of vectors.encrypt) {
-    for (const exp of vectors.exportKey) {
-      vectors.wrapKey.push([enc[0] && exp[0], enc[1], exp[1]]);
-    }
+for (const enc of vectors.encrypt) {
+  for (const exp of vectors.exportKey) {
+    vectors.wrapKey.push([enc[0] && exp[0], enc[1], exp[1]]);
   }
 }
 
-if (vectors.decrypt && vectors.importKey) {
-  for (const dec of vectors.decrypt) {
-    for (const imp of vectors.importKey) {
-      vectors.unwrapKey.push([dec[0] && imp[0], dec[1], imp[1]]);
-    }
+for (const dec of vectors.decrypt) {
+  for (const imp of vectors.importKey) {
+    vectors.unwrapKey.push([dec[0] && imp[0], dec[1], imp[1]]);
   }
 }
 
-if (vectors.encapsulateBits && vectors.importKey) {
-  for (const encap of vectors.encapsulateBits) {
-    for (const imp of vectors.importKey) {
-      vectors.encapsulateKey.push([encap[0] && imp[0], encap[1], imp[1]]);
-    }
+for (const encap of vectors.encapsulateBits) {
+  for (const imp of vectors.importKey) {
+    vectors.encapsulateKey.push([encap[0] && imp[0], encap[1], imp[1]]);
   }
 }
 
-if (vectors.decapsulateBits && vectors.importKey) {
-  for (const decap of vectors.decapsulateBits) {
-    for (const imp of vectors.importKey) {
-      vectors.decapsulateKey.push([decap[0] && imp[0], decap[1], imp[1]]);
-    }
+for (const decap of vectors.decapsulateBits) {
+  for (const imp of vectors.importKey) {
+    vectors.decapsulateKey.push([decap[0] && imp[0], decap[1], imp[1]]);
   }
 }
 
-if (vectors.exportKey && vectors.getPublicKey) {
-  for (const exportKey of vectors.exportKey) {
-    if (!exportKey[0]) vectors.getPublicKey.push(exportKey);
-  }
+for (const exportKey of vectors.exportKey) {
+  if (!exportKey[0]) vectors.getPublicKey.push(exportKey);
 }
 
 for (const operation of Object.keys(vectors)) {
