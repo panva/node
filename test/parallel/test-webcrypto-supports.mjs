@@ -58,6 +58,12 @@ if (vectors.decapsulateBits && vectors.importKey) {
   }
 }
 
+if (vectors.exportKey && vectors.getPublicKey) {
+  for (const exportKey of vectors.exportKey) {
+    if (!exportKey[0]) vectors.getPublicKey.push(exportKey);
+  }
+}
+
 for (const operation of Object.keys(vectors)) {
   for (const [expectation, ...args] of vectors[operation]) {
     assert.strictEqual(
