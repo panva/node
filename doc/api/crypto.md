@@ -1911,6 +1911,223 @@ encoding of `'utf8'` is enforced. If `data` is a [`Buffer`][], `TypedArray`, or
 
 This can be called many times with new data as it is streamed.
 
+## Class: `HPKEDecryptionContext`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+The `HPKEDecryptionContext` class is a utility for performing HPKE
+(Hybrid Public Key Encryption) decryption operations. It provides methods
+for decrypting multiple messages and exporting secrets using the same
+encryption context.
+
+Instances of the `HPKEDecryptionContext` class are created using the
+[`hpkeReceiver.setup()`][] method. `HPKEDecryptionContext` objects are not
+to be created directly using the `new` keyword.
+
+### `hpkeDecryptionContext.export(exporterContext, length)`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* `exporterContext` {ArrayBuffer|Buffer|TypedArray|DataView} The exporter context.
+* `length` {number} The length of the exported secret in bytes.
+* Returns: {Buffer}
+
+Exports a secret of the specified length using the current HPKE context.
+The `exporterContext` provides domain separation for different uses of the
+export functionality.
+
+### `hpkeDecryptionContext.open(ciphertext[, aad])`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* `ciphertext` {ArrayBuffer|Buffer|TypedArray|DataView} The ciphertext to decrypt.
+* `aad` {ArrayBuffer|Buffer|TypedArray|DataView} Optional additional authenticated data.
+* Returns: {Buffer}
+
+Decrypts the `ciphertext` and returns the plaintext.
+
+### `hpkeDecryptionContext.getSequenceNumber()`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* Returns: {number}
+
+Returns the current sequence number for this HPKE context. This number is automatically
+incremented after each successful [`hpkeDecryptionContext.open()`][] operation.
+The sequence number starts at 0 and must match the sequence number used
+during encryption.
+
+### `hpkeDecryptionContext.setSequenceNumber(sequenceNumber)`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* `sequenceNumber` {number} The sequence number to set. Must be a non-negative integer.
+
+Sets the sequence number for the next decryption operation. This allows
+decryption of messages that arrive out of order, which is useful for protocols
+that may experience packet loss.
+
+## Class: `HPKEEncryptionContext`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+The `HPKEEncryptionContext` class is a utility for performing HPKE
+(Hybrid Public Key Encryption) encryption operations. It provides methods
+for encrypting multiple messages and exporting secrets using the same
+encryption context.
+
+Instances of the `HPKEEncryptionContext` class are created using the
+[`hpkeSender.setup()`][] method. `HPKEEncryptionContext` objects are not
+to be created directly using the `new` keyword.
+
+### `hpkeEncryptionContext.export(exporterContext, length)`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* `exporterContext` {ArrayBuffer|Buffer|TypedArray|DataView} The exporter context.
+* `length` {number} The length of the exported secret in bytes.
+* Returns: {Buffer}
+
+Exports a secret of the specified length using the current HPKE context.
+The `exporterContext` provides domain separation for different uses of the
+export functionality.
+
+### `hpkeEncryptionContext.seal(plaintext[, aad])`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* `plaintext` {ArrayBuffer|Buffer|TypedArray|DataView} The plaintext to encrypt.
+* `aad` {ArrayBuffer|Buffer|TypedArray|DataView} Optional additional authenticated data.
+* Returns: {Buffer}
+
+Encrypts the `plaintext` and returns the ciphertext.
+
+### `hpkeEncryptionContext.getSequenceNumber()`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* Returns: {number}
+
+Returns the current sequence number for this HPKE context. This number is automatically
+incremented after each successful [`hpkeEncryptionContext.seal()`][] operation.
+The sequence number starts at 0.
+
+## Class: `HPKEReceiver`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+The `HPKEReceiver` class is a utility for performing HPKE (Hybrid Public Key
+Encryption) decryption operations. It encapsulates the receiver's private key
+and the selected cryptographic algorithms.
+
+Instances of the `HPKEReceiver` class are created using the
+[`crypto.createHPKEReceiver()`][] function. `HPKEReceiver` objects are not
+to be created directly using the `new` keyword.
+
+### `hpkeReceiver.openOneShot(ciphertext, encapsulatedKey[, aad[, info]])`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* `ciphertext` {ArrayBuffer|Buffer|TypedArray|DataView} The ciphertext to decrypt.
+* `encapsulatedKey` {ArrayBuffer|Buffer|TypedArray|DataView} The encapsulated key from the sender.
+* `aad` {ArrayBuffer|Buffer|TypedArray|DataView} Optional additional authenticated data.
+* `info` {ArrayBuffer|Buffer|TypedArray|DataView} Optional context information.
+* Returns: {Buffer}
+
+Performs a complete HPKE decryption operation in a single call. This is
+equivalent to calling [`hpkeReceiver.setup()`][] followed by
+[`hpkeDecryptionContext.open()`][], but is more efficient for single-message
+decryption.
+
+### `hpkeReceiver.setup(encapsulatedKey[, info])`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* `encapsulatedKey` {ArrayBuffer|Buffer|TypedArray|DataView} The encapsulated key from the sender.
+* `info` {ArrayBuffer|Buffer|TypedArray|DataView} Optional context information.
+* Returns: {HPKEDecryptionContext}
+
+Sets up the HPKE decryption context using the provided `encapsulatedKey`.
+The optional `info` parameter provides context information that must match
+the info used during encryption setup.
+
+Returns an [`HPKEDecryptionContext`][] that can be used to decrypt multiple
+messages and export secrets.
+
+## Class: `HPKESender`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+The `HPKESender` class is a utility for performing HPKE (Hybrid Public Key
+Encryption) encryption operations. It encapsulates the receiver's public key
+and the selected cryptographic algorithms.
+
+Instances of the `HPKESender` class are created using the
+[`crypto.createHPKESender()`][] function. `HPKESender` objects are not
+to be created directly using the `new` keyword.
+
+### `hpkeSender.sealOneShot(plaintext[, aad[, info]])`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* `plaintext` {ArrayBuffer|Buffer|TypedArray|DataView} The plaintext to encrypt.
+* `aad` {ArrayBuffer|Buffer|TypedArray|DataView} Optional additional authenticated data.
+* `info` {ArrayBuffer|Buffer|TypedArray|DataView} Optional context information.
+* Returns: {Object}
+  * `ciphertext` {Buffer} The encrypted data.
+  * `encapsulatedKey` {Buffer} The encapsulated key for the receiver.
+
+Performs a complete HPKE encryption operation in a single call. This is
+equivalent to calling [`hpkeSender.setup()`][] followed by
+[`hpkeEncryptionContext.seal()`][], but is more efficient for single-message
+encryption.
+
+### `hpkeSender.setup([info])`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* `info` {ArrayBuffer|Buffer|TypedArray|DataView} Optional context information.
+* Returns: {Object}
+  * `encapsulatedKey` {Buffer} The encapsulated key for the receiver.
+  * `context` {HPKEEncryptionContext} The encryption context.
+
+Sets up the HPKE encryption context. The optional `info` parameter provides
+context information that must be provided to the receiver during decryption setup.
+
+Returns an object containing the `encapsulatedKey` (which must be sent to the
+receiver) and an [`HPKEEncryptionContext`][] that can be used to encrypt
+multiple messages and export secrets.
+
 ## Class: `KeyObject`
 
 <!-- YAML
@@ -3307,6 +3524,68 @@ input.on('readable', () => {
   }
 });
 ```
+
+### `crypto.createHPKEReceiver(privateKey, suite[, psk])`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* `privateKey` {Object|string|ArrayBuffer|Buffer|TypedArray|DataView|KeyObject} The receiver's private key.
+* `suite` {Object}
+  * `kem` {number} The KEM (Key Encapsulation Mechanism) algorithm. One of the
+    `crypto.constants.HPKE_KEM_*` constants.
+  * `kdf` {number} The KDF (Key Derivation Function) algorithm. One of the
+    `crypto.constants.HPKE_KDF_*` constants.
+  * `aead` {number} The AEAD (Authenticated Encryption with Associated Data)
+    algorithm. One of the `crypto.constants.HPKE_AEAD_*` constants.
+* `psk` {Object} Optional pre-shared key configuration for PSK mode.
+  * `key` {ArrayBuffer|Buffer|TypedArray|DataView} The pre-shared key.
+  * `id` {ArrayBuffer|Buffer|TypedArray|DataView} The PSK identifier.
+* Returns: {HPKEReceiver}
+
+Creates and returns an `HPKEReceiver` object that can be used for HPKE
+decryption operations.
+
+If `privateKey` is not a [`KeyObject`][], this function behaves as if
+`privateKey` had been passed to [`crypto.createPrivateKey()`][].
+
+The `suite` object specifies the cryptographic algorithms to use. The private
+key must be compatible with the specified KEM algorithm.
+
+The receiver operates in Base mode, unless `psk` is provided, then the receiver
+operates in PSK mode.
+
+### `crypto.createHPKESender(publicKey, suite[, psk])`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* `publicKey` {Object|string|ArrayBuffer|Buffer|TypedArray|DataView|KeyObject} The receiver's public key.
+* `suite` {Object}
+  * `kem` {number} The KEM (Key Encapsulation Mechanism) algorithm. One of the
+    `crypto.constants.HPKE_KEM_*` constants.
+  * `kdf` {number} The KDF (Key Derivation Function) algorithm. One of the
+    `crypto.constants.HPKE_KDF_*` constants.
+  * `aead` {number} The AEAD (Authenticated Encryption with Associated Data)
+    algorithm. One of the `crypto.constants.HPKE_AEAD_*` constants.
+* `psk` {Object} Optional pre-shared key configuration for PSK mode.
+  * `key` {ArrayBuffer|Buffer|TypedArray|DataView} The pre-shared key.
+  * `id` {ArrayBuffer|Buffer|TypedArray|DataView} The PSK identifier.
+* Returns: {HPKESender}
+
+Creates and returns an `HPKESender` object that can be used for HPKE
+encryption operations.
+
+If `publicKey` is not a [`KeyObject`][], this function behaves as if
+`publicKey` had been passed to [`crypto.createPublicKey()`][].
+
+The `suite` object specifies the cryptographic algorithms to use. The public
+key must be compatible with the specified KEM algorithm.
+
+The sender operates in Base mode, unless `psk` is provided, then the sender
+operates in PSK mode.
 
 ### `crypto.createHmac(algorithm, key[, options])`
 
@@ -6150,6 +6429,83 @@ See the [list of SSL OP Flags][] for details.
   </tr>
 </table>
 
+### HPKE constants
+
+#### HPKE KEM (Key Encapsulation Mechanism) constants
+
+<table>
+  <tr>
+    <th>Constant</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><code>HPKE_KEM_DHKEM_P256_HKDF_SHA256</code></td>
+    <td>DHKEM using P-256 curve with HKDF-SHA256.</td>
+  </tr>
+  <tr>
+    <td><code>HPKE_KEM_DHKEM_P384_HKDF_SHA384</code></td>
+    <td>DHKEM using P-384 curve with HKDF-SHA384.</td>
+  </tr>
+  <tr>
+    <td><code>HPKE_KEM_DHKEM_P521_HKDF_SHA512</code></td>
+    <td>DHKEM using P-521 curve with HKDF-SHA512.</td>
+  </tr>
+  <tr>
+    <td><code>HPKE_KEM_DHKEM_X25519_HKDF_SHA256</code></td>
+    <td>DHKEM using X25519 with HKDF-SHA256.</td>
+  </tr>
+  <tr>
+    <td><code>HPKE_KEM_DHKEM_X448_HKDF_SHA512</code></td>
+    <td>DHKEM using X448 with HKDF-SHA512.</td>
+  </tr>
+</table>
+
+#### HPKE KDF (Key Derivation Function) constants
+
+<table>
+  <tr>
+    <th>Constant</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><code>HPKE_KDF_HKDF_SHA256</code></td>
+    <td>HKDF using SHA-256.</td>
+  </tr>
+  <tr>
+    <td><code>HPKE_KDF_HKDF_SHA384</code></td>
+    <td>HKDF using SHA-384.</td>
+  </tr>
+  <tr>
+    <td><code>HPKE_KDF_HKDF_SHA512</code></td>
+    <td>HKDF using SHA-512.</td>
+  </tr>
+</table>
+
+#### HPKE AEAD (Authenticated Encryption with Associated Data) constants
+
+<table>
+  <tr>
+    <th>Constant</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><code>HPKE_AEAD_AES_128_GCM</code></td>
+    <td>AES-128-GCM AEAD algorithm.</td>
+  </tr>
+  <tr>
+    <td><code>HPKE_AEAD_AES_256_GCM</code></td>
+    <td>AES-256-GCM AEAD algorithm.</td>
+  </tr>
+  <tr>
+    <td><code>HPKE_AEAD_CHACHA20_POLY1305</code></td>
+    <td>ChaCha20-Poly1305 AEAD algorithm.</td>
+  </tr>
+  <tr>
+    <td><code>HPKE_AEAD_EXPORT_ONLY</code></td>
+    <td>Export-only mode (no encryption/decryption).</td>
+  </tr>
+</table>
+
 [AEAD algorithms]: https://en.wikipedia.org/wiki/Authenticated_encryption
 [CCM mode]: #ccm-mode
 [CVE-2021-44532]: https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-44532
@@ -6179,6 +6535,8 @@ See the [list of SSL OP Flags][] for details.
 [`Buffer`]: buffer.md
 [`DH_generate_key()`]: https://www.openssl.org/docs/man3.0/man3/DH_generate_key.html
 [`DiffieHellmanGroup`]: #class-diffiehellmangroup
+[`HPKEDecryptionContext`]: #class-hpkedecryptioncontext
+[`HPKEEncryptionContext`]: #class-hpkeencryptioncontext
 [`KeyObject`]: #class-keyobject
 [`Sign`]: #class-sign
 [`String.prototype.normalize()`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/normalize
@@ -6190,6 +6548,8 @@ See the [list of SSL OP Flags][] for details.
 [`crypto.createDecipheriv()`]: #cryptocreatedecipherivalgorithm-key-iv-options
 [`crypto.createDiffieHellman()`]: #cryptocreatediffiehellmanprime-primeencoding-generator-generatorencoding
 [`crypto.createECDH()`]: #cryptocreateecdhcurvename
+[`crypto.createHPKEReceiver()`]: #cryptocreatehpkereceiverprivatekey-suite-psk
+[`crypto.createHPKESender()`]: #cryptocreatehpkesenderpublickey-suite-psk
 [`crypto.createHash()`]: #cryptocreatehashalgorithm-options
 [`crypto.createHmac()`]: #cryptocreatehmacalgorithm-key-options
 [`crypto.createPrivateKey()`]: #cryptocreateprivatekeykey
@@ -6219,6 +6579,10 @@ See the [list of SSL OP Flags][] for details.
 [`hash.update()`]: #hashupdatedata-inputencoding
 [`hmac.digest()`]: #hmacdigestencoding
 [`hmac.update()`]: #hmacupdatedata-inputencoding
+[`hpkeDecryptionContext.open()`]: #hpkedecryptioncontextopenciphertext-aad
+[`hpkeEncryptionContext.seal()`]: #hpkeencryptioncontextsealplaintext-aad
+[`hpkeReceiver.setup()`]: #hpkereceiversetupencapsulatedkey-info
+[`hpkeSender.setup()`]: #hpkesendersetupinfo
 [`import()`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/import
 [`keyObject.export()`]: #keyobjectexportoptions
 [`postMessage()`]: worker_threads.md#portpostmessagevalue-transferlist
