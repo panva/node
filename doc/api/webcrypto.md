@@ -965,6 +965,10 @@ Derives the public key from a given private key.
 
 <!-- YAML
 added: v15.0.0
+changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/59365
+    description: ML-DSA algorithms are now supported.
 -->
 
 <!--lint disable maximum-line-length remark-lint-->
@@ -988,6 +992,9 @@ include:
 * `'ECDSA'`
 * `'Ed25519'`
 * `'Ed448'`[^secure-curves]
+* `'ML-DSA-44'`[^modern-algos]
+* `'ML-DSA-65'`[^modern-algos]
+* `'ML-DSA-87'`[^modern-algos]
 * `'RSA-OAEP'`
 * `'RSA-PSS'`
 * `'RSASSA-PKCS1-v1_5'`
