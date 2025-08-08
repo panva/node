@@ -968,6 +968,9 @@ added: v15.0.0
 changes:
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/59365
+    description: ChaCha20-Poly1305 algorithm is now supported.
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/59365
     description: ML-DSA algorithms are now supported.
 -->
 
