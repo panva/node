@@ -24,7 +24,10 @@ constexpr unsigned kNoAuthTagLength = static_cast<unsigned>(-1);
   V(GCM_256, AES_Cipher, ncrypto::Cipher::AES_256_GCM)                         \
   V(KW_128, AES_Cipher, ncrypto::Cipher::AES_128_KW)                           \
   V(KW_192, AES_Cipher, ncrypto::Cipher::AES_192_KW)                           \
-  V(KW_256, AES_Cipher, ncrypto::Cipher::AES_256_KW)
+  V(KW_256, AES_Cipher, ncrypto::Cipher::AES_256_KW)                           \
+  V(OCB_128, AES_Cipher, ncrypto::Cipher::AES_128_OCB)                         \
+  V(OCB_192, AES_Cipher, ncrypto::Cipher::AES_192_OCB)                         \
+  V(OCB_256, AES_Cipher, ncrypto::Cipher::AES_256_OCB)
 
 enum class AESKeyVariant {
 #define V(name, _, __) name,
@@ -39,7 +42,7 @@ struct AESCipherConfig final : public MemoryRetainer {
   size_t length;
   ByteSource iv;  // Used for both iv or counter
   ByteSource additional_data;
-  ByteSource tag;  // Used only for authenticated modes (GCM)
+  ByteSource tag;  // Used only for authenticated modes (GCM, OCB)
 
   AESCipherConfig() = default;
 

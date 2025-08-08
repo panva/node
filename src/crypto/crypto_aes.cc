@@ -61,7 +61,8 @@ WebCryptoCipherStatus AES_Cipher(Environment* env,
     return WebCryptoCipherStatus::FAILED;
   }
 
-  if (params.cipher.isGcmMode() && !ctx.setIvLength(params.iv.size())) {
+  if ((params.cipher.isGcmMode() || params.cipher.isOcbMode()) &&
+      !ctx.setIvLength(params.iv.size())) {
     return WebCryptoCipherStatus::FAILED;
   }
 
@@ -76,7 +77,7 @@ WebCryptoCipherStatus AES_Cipher(Environment* env,
 
   size_t tag_len = 0;
 
-  if (params.cipher.isGcmMode()) {
+  if (params.cipher.isGcmMode() || params.cipher.isOcbMode()) {
     switch (cipher_mode) {
       case kWebCryptoCipherDecrypt: {
         // If in decrypt mode, the auth tag must be set in the params.tag.
@@ -91,7 +92,7 @@ WebCryptoCipherStatus AES_Cipher(Environment* env,
         break;
       }
       case kWebCryptoCipherEncrypt: {
-        // In decrypt mode, we grab the tag length here. We'll use it to
+        // In encrypt mode, we grab the tag length here. We'll use it to
         // ensure that that allocated buffer has enough room for both the
         // final block and the auth tag. Unlike our other AES-GCM implementation
         // in CipherBase, in WebCrypto, the auth tag is concatenated to the end
@@ -112,8 +113,8 @@ WebCryptoCipherStatus AES_Cipher(Environment* env,
       .data = params.additional_data.data<unsigned char>(),
       .len = params.additional_data.size(),
   };
-  if (params.cipher.isGcmMode() && params.additional_data.size() &&
-      !ctx.update(buffer, nullptr, &out_len)) {
+  if ((params.cipher.isGcmMode() || params.cipher.isOcbMode()) &&
+      params.additional_data.size() && !ctx.update(buffer, nullptr, &out_len)) {
     return WebCryptoCipherStatus::FAILED;
   }
 
@@ -147,9 +148,9 @@ WebCryptoCipherStatus AES_Cipher(Environment* env,
   }
   total += out_len;
 
-  // If using AES_GCM, grab the generated auth tag and append
+  // If using AES_GCM or AES_OCB, grab the generated auth tag and append
   // it to the end of the ciphertext.
-  if (encrypt && params.cipher.isGcmMode()) {
+  if (encrypt && (params.cipher.isGcmMode() || params.cipher.isOcbMode())) {
     if (!ctx.getAeadTag(tag_len, ptr + total)) {
       return WebCryptoCipherStatus::FAILED;
     }
@@ -492,7 +493,7 @@ Maybe<void> AESCipherTraits::AdditionalConfig(
       if (!ValidateCounter(env, args[offset + 2], params)) {
         return Nothing<void>();
       }
-    } else if (params->cipher.isGcmMode()) {
+    } else if (params->cipher.isGcmMode() || params->cipher.isOcbMode()) {
       if (!ValidateAuthTag(env, mode, cipher_mode, args[offset + 2], params) ||
           !ValidateAdditionalData(env, mode, args[offset + 3], params)) {
         return Nothing<void>();

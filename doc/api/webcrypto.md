@@ -4,6 +4,9 @@
 changes:
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/59365
+    description: AES-OCB algorithm is now supported.
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/59365
     description: ChaCha20-Poly1305 algorithm is now supported.
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/59365
@@ -101,6 +104,7 @@ WICG proposal:
 
 Algorithms:
 
+* `'AES-OCB'`
 * `'ChaCha20-Poly1305'`
 * `'cSHAKE128'`
 * `'cSHAKE256'`
@@ -489,6 +493,7 @@ implementation and the APIs supported for each:
 | `'AES-CTR'`                          | ✔             | ✔           | ✔           | ✔                 | ✔                   |                        |               |          |                |
 | `'AES-GCM'`                          | ✔             | ✔           | ✔           | ✔                 | ✔                   |                        |               |          |                |
 | `'AES-KW'`                           | ✔             | ✔           | ✔           |                   | ✔                   |                        |               |          |                |
+| `'AES-OCB'`[^modern-algos]           | ✔             | ✔           | ✔           | ✔                 | ✔                   |                        |               |          |                |
 | `'ChaCha20-Poly1305'`[^modern-algos] | ✔             | ✔           | ✔           | ✔                 | ✔                   |                        |               |          |                |
 | `'cSHAKE128'`[^modern-algos]         |               |             |             |                   |                     |                        |               | ✔        |                |
 | `'cSHAKE256'`[^modern-algos]         |               |             |             |                   |                     |                        |               | ✔        |                |
@@ -641,6 +646,7 @@ Valid key usages depend on the key algorithm (identified by
 | `'AES-CTR'`                          | ✔           | ✔           |          |            |               |                | ✔           | ✔             |
 | `'AES-GCM'`                          | ✔           | ✔           |          |            |               |                | ✔           | ✔             |
 | `'AES-KW'`                           |             |             |          |            |               |                | ✔           | ✔             |
+| `'AES-OCB'`[^modern-algos]           | ✔           | ✔           |          |            |               |                | ✔           | ✔             |
 | `'ChaCha20-Poly1305'`[^modern-algos] | ✔           | ✔           |          |            |               |                | ✔           | ✔             |
 | `'ECDH'`                             |             |             |          |            | ✔             | ✔              |             |               |
 | `'ECDSA'`                            |             |             | ✔        | ✔          |               |                |             |               |
@@ -717,6 +723,9 @@ added: v15.0.0
 changes:
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/59365
+    description: AES-OCB algorithm is now supported.
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/59365
     description: ChaCha20-Poly1305 algorithm is now supported.
 -->
 
@@ -735,6 +744,7 @@ The algorithms currently supported include:
 * `'AES-CBC'`
 * `'AES-CTR'`
 * `'AES-GCM'`
+* `'AES-OCB'`[^modern-algos]
 * `'ChaCha20-Poly1305'`[^modern-algos]
 * `'RSA-OAEP'`
 
@@ -868,6 +878,9 @@ added: v15.0.0
 changes:
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/59365
+    description: AES-OCB algorithm is now supported.
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/59365
     description: ChaCha20-Poly1305 algorithm is now supported.
 -->
 
@@ -886,6 +899,7 @@ The algorithms currently supported include:
 * `'AES-CBC'`
 * `'AES-CTR'`
 * `'AES-GCM'`
+* `'AES-OCB'`[^modern-algos]
 * `'ChaCha20-Poly1305'`[^modern-algos]
 * `'RSA-OAEP'`
 
@@ -894,6 +908,9 @@ The algorithms currently supported include:
 <!-- YAML
 added: v15.0.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/59365
+    description: AES-OCB algorithm is now supported.
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/59365
     description: ChaCha20-Poly1305 algorithm is now supported.
@@ -934,6 +951,7 @@ specification.
 | `'AES-CTR'`                          |          |           | ✔       | ✔       | ✔              |                |              |
 | `'AES-GCM'`                          |          |           | ✔       | ✔       | ✔              |                |              |
 | `'AES-KW'`                           |          |           | ✔       | ✔       | ✔              |                |              |
+| `'AES-OCB'`[^modern-algos]           |          |           | ✔       |         | ✔              |                |              |
 | `'ChaCha20-Poly1305'`[^modern-algos] |          |           | ✔       |         | ✔              |                |              |
 | `'ECDH'`                             | ✔        | ✔         | ✔       | ✔       |                | ✔              |              |
 | `'ECDSA'`                            | ✔        | ✔         | ✔       | ✔       |                | ✔              |              |
@@ -966,6 +984,9 @@ Derives the public key from a given private key.
 <!-- YAML
 added: v15.0.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/59365
+    description: AES-OCB algorithm is now supported.
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/59365
     description: ChaCha20-Poly1305 algorithm is now supported.
@@ -1010,6 +1031,7 @@ The {CryptoKey} (secret key) generating algorithms supported include:
 * `'AES-CTR'`
 * `'AES-GCM'`
 * `'AES-KW'`
+* `'AES-OCB'`[^modern-algos]
 * `'ChaCha20-Poly1305'`[^modern-algos]
 * `'HMAC'`
 
@@ -1018,6 +1040,9 @@ The {CryptoKey} (secret key) generating algorithms supported include:
 <!-- YAML
 added: v15.0.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/59365
+    description: AES-OCB algorithm is now supported.
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/59365
     description: ChaCha20-Poly1305 algorithm is now supported.
@@ -1064,6 +1089,7 @@ The algorithms currently supported include:
 | `'AES-CTR'`                          |          |           | ✔       | ✔       | ✔              |                |              |
 | `'AES-GCM'`                          |          |           | ✔       | ✔       | ✔              |                |              |
 | `'AES-KW'`                           |          |           | ✔       | ✔       | ✔              |                |              |
+| `'AES-OCB'`[^modern-algos]           |          |           | ✔       |         | ✔              |                |              |
 | `'ChaCha20-Poly1305'`[^modern-algos] |          |           | ✔       |         | ✔              |                |              |
 | `'ECDH'`                             | ✔        | ✔         | ✔       | ✔       |                | ✔              |              |
 | `'ECDSA'`                            | ✔        | ✔         | ✔       | ✔       |                | ✔              |              |
@@ -1129,6 +1155,9 @@ added: v15.0.0
 changes:
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/59365
+    description: AES-OCB algorithm is now supported.
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/59365
     description: ChaCha20-Poly1305 algorithm is now supported.
 -->
 
@@ -1163,6 +1192,7 @@ The wrapping algorithms currently supported include:
 * `'AES-CTR'`
 * `'AES-GCM'`
 * `'AES-KW'`
+* `'AES-OCB'`[^modern-algos]
 * `'ChaCha20-Poly1305'`[^modern-algos]
 * `'RSA-OAEP'`
 
@@ -1172,6 +1202,7 @@ The unwrapped key algorithms supported include:
 * `'AES-CTR'`
 * `'AES-GCM'`
 * `'AES-KW'`
+* `'AES-OCB'`[^modern-algos]
 * `'ChaCha20-Poly1305'`[^modern-algos]
 * `'ECDH'`
 * `'ECDSA'`
@@ -1236,6 +1267,9 @@ added: v15.0.0
 changes:
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/59365
+    description: AES-OCB algorithm is now supported.
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/59365
     description: ChaCha20-Poly1305 algorithm is now supported.
 -->
 
@@ -1266,6 +1300,7 @@ The wrapping algorithms currently supported include:
 * `'AES-CTR'`
 * `'AES-GCM'`
 * `'AES-KW'`
+* `'AES-OCB'`[^modern-algos]
 * `'ChaCha20-Poly1305'`[^modern-algos]
 * `'RSA-OAEP'`
 
@@ -1323,7 +1358,7 @@ given key.
 added: v15.0.0
 -->
 
-* Type: {string} Must be `'AES-GCM'` or `'ChaCha20-Poly1305'`.
+* Type: {string} Must be `'AES-GCM'`, `'AES-OCB'`, or `'ChaCha20-Poly1305'`.
 
 #### `aeadParams.tagLength`
 
@@ -1345,8 +1380,7 @@ added: v15.0.0
 added: v15.0.0
 -->
 
-* Type: {string} Must be one of `'AES-CBC'`, `'AES-CTR'`, `'AES-GCM'`, or
-  `'AES-KW'`
+* Type: {string} Must be one of `'AES-CBC'`, `'AES-CTR'`, `'AES-GCM'`, `'AES-OCB'`, or `'AES-KW'`
 
 #### `aesDerivedKeyParams.length`
 
