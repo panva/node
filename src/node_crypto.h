@@ -31,6 +31,7 @@
 #include "crypto/crypto_aes.h"
 #include "crypto/crypto_argon2.h"
 #include "crypto/crypto_bio.h"
+#include "crypto/crypto_chacha20_poly1305.h"
 #include "crypto/crypto_cipher.h"
 #include "crypto/crypto_context.h"
 #include "crypto/crypto_dh.h"
