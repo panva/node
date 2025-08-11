@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstring>
 #if OPENSSL_VERSION_MAJOR >= 3
+#include <openssl/params.h>
 #include <openssl/provider.h>
 #endif
 
@@ -4115,6 +4116,56 @@ std::optional<EVP_PKEY_CTX*> EVPMDCtxPointer::verifyInit(
     return std::nullopt;
   }
   return ctx;
+}
+
+std::optional<EVP_PKEY_CTX*> EVPMDCtxPointer::signInitWithContext(
+    const EVPKeyPointer& key,
+    const Digest& digest,
+    const Buffer<const unsigned char>& context_string) {
+#ifdef OSSL_SIGNATURE_PARAM_CONTEXT_STRING
+  EVP_PKEY_CTX* ctx = nullptr;
+
+  const OSSL_PARAM params[] = {
+      OSSL_PARAM_construct_octet_string(
+          OSSL_SIGNATURE_PARAM_CONTEXT_STRING,
+          const_cast<unsigned char*>(context_string.data),
+          context_string.len),
+      OSSL_PARAM_END};
+
+  const char* digest_name = digest ? EVP_MD_get0_name(digest) : nullptr;
+  if (!EVP_DigestSignInit_ex(
+          ctx_.get(), &ctx, digest_name, nullptr, nullptr, key.get(), params)) {
+    return std::nullopt;
+  }
+  return ctx;
+#else
+  return std::nullopt;
+#endif
+}
+
+std::optional<EVP_PKEY_CTX*> EVPMDCtxPointer::verifyInitWithContext(
+    const EVPKeyPointer& key,
+    const Digest& digest,
+    const Buffer<const unsigned char>& context_string) {
+#ifdef OSSL_SIGNATURE_PARAM_CONTEXT_STRING
+  EVP_PKEY_CTX* ctx = nullptr;
+
+  const OSSL_PARAM params[] = {
+      OSSL_PARAM_construct_octet_string(
+          OSSL_SIGNATURE_PARAM_CONTEXT_STRING,
+          const_cast<unsigned char*>(context_string.data),
+          context_string.len),
+      OSSL_PARAM_END};
+
+  const char* digest_name = digest ? EVP_MD_get0_name(digest) : nullptr;
+  if (!EVP_DigestVerifyInit_ex(
+          ctx_.get(), &ctx, digest_name, nullptr, nullptr, key.get(), params)) {
+    return std::nullopt;
+  }
+  return ctx;
+#else
+  return std::nullopt;
+#endif
 }
 
 DataPointer EVPMDCtxPointer::signOneShot(

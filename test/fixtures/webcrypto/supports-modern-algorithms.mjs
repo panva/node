@@ -26,6 +26,12 @@ export const vectors = {
     [pqc, 'ML-DSA-44'],
     [pqc, 'ML-DSA-65'],
     [pqc, 'ML-DSA-87'],
+    [pqc, { name: 'ML-DSA-44', context: Buffer.alloc(0) }],
+    [pqc, { name: 'ML-DSA-65', context: Buffer.alloc(0) }],
+    [pqc, { name: 'ML-DSA-87', context: Buffer.alloc(0) }],
+    [pqc, { name: 'ML-DSA-44', context: Buffer.alloc(32) }],
+    [pqc, { name: 'ML-DSA-65', context: Buffer.alloc(32) }],
+    [pqc, { name: 'ML-DSA-87', context: Buffer.alloc(32) }],
   ],
   'generateKey': [
     [pqc, 'ML-DSA-44'],
