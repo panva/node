@@ -9,6 +9,7 @@ if (!common.hasCrypto)
 const { hasOpenSSL } = require('../common/crypto');
 
 const assert = require('assert');
+const util = require('util');
 const { types: { isCryptoKey } } = require('util');
 const {
   createSecretKey,
@@ -414,7 +415,7 @@ if (hasOpenSSL(3, 5)) {
     [
       'RSASSA-PKCS1-v1_5',
       1024,
-      Buffer.from([1, 0, 1]),
+      new Uint8Array([1, 0, 1]),
       'SHA-1',
       ['sign'],
       ['verify'],
@@ -422,7 +423,7 @@ if (hasOpenSSL(3, 5)) {
     [
       'RSA-PSS',
       1024,
-      Buffer.from([1, 0, 1]),
+      new Uint8Array([1, 0, 1]),
       'SHA-256',
       ['sign'],
       ['verify'],
@@ -435,7 +436,7 @@ if (hasOpenSSL(3, 5)) {
       [
         'RSA-OAEP',
         1024,
-        Buffer.from([3]),
+        new Uint8Array([3]),
         'SHA3-256',
         ['decrypt', 'unwrapKey'],
         ['encrypt', 'wrapKey'],
@@ -782,4 +783,21 @@ if (hasOpenSSL(3, 5)) {
   const tests = kTests.map((name) => test(name, ['sign'], ['verify']));
 
   Promise.all(tests).then(common.mustCall());
+}
+
+// Test usage of internal slots
+{
+  (async () => {
+    const kp = await subtle.generateKey('Ed25519', true, ['sign', 'verify']);
+    assert.notStrictEqual(kp.publicKey.algorithm, kp.privateKey.algorithm);
+    assert.notStrictEqual(kp.publicKey.usages, kp.privateKey.usages);
+    kp.publicKey.algorithm.name = 'ed25519';
+    assert.strictEqual(kp.publicKey.algorithm.name, 'ed25519');
+    kp.publicKey.usages.push('foo');
+    assert(kp.publicKey.usages.includes('foo'));
+    assert(util.inspect(kp.publicKey).includes("algorithm: { name: 'Ed25519' }"));
+    assert(util.inspect(kp.publicKey).includes("usages: [ 'verify' ]"));
+
+    await subtle.sign('Ed25519', kp.privateKey, Buffer.alloc(32));
+  })().then(common.mustCall());
 }
