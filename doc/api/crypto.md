@@ -5440,6 +5440,9 @@ Throws an error if FIPS mode is not available.
 added: v12.0.0
 changes:
   - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/00000
+    description: Add support for ML-DSA and Ed448 context parameter.
+  - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/59259
     description: Add support for ML-DSA signing.
   - version: v18.0.0
@@ -5496,6 +5499,9 @@ additional properties can be passed:
   `crypto.constants.RSA_PSS_SALTLEN_DIGEST` sets the salt length to the digest
   size, `crypto.constants.RSA_PSS_SALTLEN_MAX_SIGN` (default) sets it to the
   maximum permissible value.
+* `context` {ArrayBuffer|Buffer|TypedArray|DataView} For Ed448 and ML-DSA, this
+  option specifies the optional context to differentiate signatures generated
+  for different purposes with the same key.
 
 If the `callback` function is provided this function uses libuv's threadpool.
 
@@ -5555,6 +5561,9 @@ not introduce timing vulnerabilities.
 <!-- YAML
 added: v12.0.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/00000
+    description: Add support for ML-DSA and Ed448 context parameter.
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/59259
     description: Add support for ML-DSA signature verification.
@@ -5618,6 +5627,9 @@ additional properties can be passed:
   `crypto.constants.RSA_PSS_SALTLEN_DIGEST` sets the salt length to the digest
   size, `crypto.constants.RSA_PSS_SALTLEN_MAX_SIGN` (default) sets it to the
   maximum permissible value.
+* `context` {ArrayBuffer|Buffer|TypedArray|DataView} For Ed448 and ML-DSA, this
+  option specifies the optional context to differentiate signatures generated
+  for different purposes with the same key.
 
 The `signature` argument is the previously calculated signature for the `data`.
 
