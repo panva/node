@@ -2026,6 +2026,9 @@ added: v11.6.0
 changes:
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/59461
+    description: Add support for SLH-DSA keys.
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/59461
     description: Add support for ML-KEM keys.
   - version: v24.6.0
     pr-url: https://github.com/nodejs/node/pull/59259
@@ -2070,6 +2073,18 @@ types are:
 * `'ml-kem-512'`[^openssl35] (OID 2.16.840.1.101.3.4.4.1)
 * `'ml-kem-768'`[^openssl35] (OID 2.16.840.1.101.3.4.4.2)
 * `'ml-kem-1024'`[^openssl35] (OID 2.16.840.1.101.3.4.4.3)
+* `'slh-dsa-sha2-128f'`[^openssl35] (OID 2.16.840.1.101.3.4.3.21)
+* `'slh-dsa-sha2-128s'`[^openssl35] (OID 2.16.840.1.101.3.4.3.22)
+* `'slh-dsa-sha2-192f'`[^openssl35] (OID 2.16.840.1.101.3.4.3.23)
+* `'slh-dsa-sha2-192s'`[^openssl35] (OID 2.16.840.1.101.3.4.3.24)
+* `'slh-dsa-sha2-256f'`[^openssl35] (OID 2.16.840.1.101.3.4.3.25)
+* `'slh-dsa-sha2-256s'`[^openssl35] (OID 2.16.840.1.101.3.4.3.26)
+* `'slh-dsa-shake-128f'`[^openssl35] (OID 2.16.840.1.101.3.4.3.27)
+* `'slh-dsa-shake-128s'`[^openssl35] (OID 2.16.840.1.101.3.4.3.28)
+* `'slh-dsa-shake-192f'`[^openssl35] (OID 2.16.840.1.101.3.4.3.29)
+* `'slh-dsa-shake-192s'`[^openssl35] (OID 2.16.840.1.101.3.4.3.30)
+* `'slh-dsa-shake-256f'`[^openssl35] (OID 2.16.840.1.101.3.4.3.31)
+* `'slh-dsa-shake-256s'`[^openssl35] (OID 2.16.840.1.101.3.4.3.32)
 
 This property is `undefined` for unrecognized `KeyObject` types and symmetric
 keys.
@@ -3671,6 +3686,9 @@ added: v10.12.0
 changes:
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/59461
+    description: Add support for SLH-DSA key pairs.
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/59461
     description: Add support for ML-KEM key pairs.
   - version: v24.6.0
     pr-url: https://github.com/nodejs/node/pull/59259
@@ -3706,7 +3724,11 @@ changes:
 
 * `type` {string} Must be `'rsa'`, `'rsa-pss'`, `'dsa'`, `'ec'`, `'ed25519'`,
   `'ed448'`, `'x25519'`, `'x448'`, `'dh'`, `'ml-dsa-44'`[^openssl35],
-  `'ml-dsa-65'`[^openssl35], or `'ml-dsa-87'`[^openssl35].
+  `'ml-dsa-65'`[^openssl35], `'ml-dsa-87'`[^openssl35], `'slh-dsa-sha2-128f'`[^openssl35],
+  `'slh-dsa-sha2-128s'`[^openssl35], `'slh-dsa-sha2-192f'`[^openssl35], `'slh-dsa-sha2-192s'`[^openssl35],
+  `'slh-dsa-sha2-256f'`[^openssl35], `'slh-dsa-sha2-256s'`[^openssl35], `'slh-dsa-shake-128f'`[^openssl35],
+  `'slh-dsa-shake-128s'`[^openssl35], `'slh-dsa-shake-192f'`[^openssl35], `'slh-dsa-shake-192s'`[^openssl35],
+  `'slh-dsa-shake-256f'`[^openssl35], `'slh-dsa-shake-256s'`[^openssl35]
 * `options` {Object}
   * `modulusLength` {number} Key size in bits (RSA, DSA).
   * `publicExponent` {number} Public exponent (RSA). **Default:** `0x10001`.
@@ -3797,6 +3819,9 @@ added: v10.12.0
 changes:
   - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/59461
+    description: Add support for SLH-DSA key pairs.
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/59461
     description: Add support for ML-KEM key pairs.
   - version: v24.6.0
     pr-url: https://github.com/nodejs/node/pull/59259
@@ -3827,7 +3852,11 @@ changes:
 
 * `type` {string} Must be `'rsa'`, `'rsa-pss'`, `'dsa'`, `'ec'`, `'ed25519'`,
   `'ed448'`, `'x25519'`, `'x448'`, `'dh'`, `'ml-dsa-44'`[^openssl35],
-  `'ml-dsa-65'`[^openssl35], or `'ml-dsa-87'`[^openssl35].
+  `'ml-dsa-65'`[^openssl35], `'ml-dsa-87'`[^openssl35], `'slh-dsa-sha2-128f'`[^openssl35],
+  `'slh-dsa-sha2-128s'`[^openssl35], `'slh-dsa-sha2-192f'`[^openssl35], `'slh-dsa-sha2-192s'`[^openssl35],
+  `'slh-dsa-sha2-256f'`[^openssl35], `'slh-dsa-sha2-256s'`[^openssl35], `'slh-dsa-shake-128f'`[^openssl35],
+  `'slh-dsa-shake-128s'`[^openssl35], `'slh-dsa-shake-192f'`[^openssl35], `'slh-dsa-shake-192s'`[^openssl35],
+  `'slh-dsa-shake-256f'`[^openssl35], `'slh-dsa-shake-256s'`[^openssl35]
 * `options` {Object}
   * `modulusLength` {number} Key size in bits (RSA, DSA).
   * `publicExponent` {number} Public exponent (RSA). **Default:** `0x10001`.
@@ -5451,6 +5480,9 @@ Throws an error if FIPS mode is not available.
 <!-- YAML
 added: v12.0.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/59461
+    description: Add support for SLH-DSA signing.
   - version: v24.6.0
     pr-url: https://github.com/nodejs/node/pull/59259
     description: Add support for ML-DSA signing.
@@ -5567,6 +5599,9 @@ not introduce timing vulnerabilities.
 <!-- YAML
 added: v12.0.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/59461
+    description: Add support for SLH-DSA signature verification.
   - version: v24.6.0
     pr-url: https://github.com/nodejs/node/pull/59259
     description: Add support for ML-DSA signature verification.
