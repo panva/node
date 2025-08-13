@@ -12,6 +12,22 @@
 #if OPENSSL_VERSION_MAJOR >= 3
 #include <openssl/provider.h>
 #endif
+#if OPENSSL_WITH_PQC
+struct PQCMapping {
+  const char* name;
+  int nid;
+};
+
+constexpr static PQCMapping pqc_mappings[] = {
+    {"ML-DSA-44", EVP_PKEY_ML_DSA_44},
+    {"ML-DSA-65", EVP_PKEY_ML_DSA_65},
+    {"ML-DSA-87", EVP_PKEY_ML_DSA_87},
+    {"ML-KEM-512", EVP_PKEY_ML_KEM_512},
+    {"ML-KEM-768", EVP_PKEY_ML_KEM_768},
+    {"ML-KEM-1024", EVP_PKEY_ML_KEM_1024},
+};
+
+#endif
 
 // EVP_PKEY_CTX_set_dsa_paramgen_q_bits was added in OpenSSL 1.1.1e.
 #if OPENSSL_VERSION_NUMBER < 0x1010105fL
@@ -1971,9 +1987,14 @@ int EVPKeyPointer::id(const EVP_PKEY* key) {
 #if OPENSSL_WITH_PQC
   // https://github.com/openssl/openssl/issues/27738#issuecomment-3013215870
   if (type == -1) {
-    if (EVP_PKEY_is_a(key, "ML-DSA-44")) return EVP_PKEY_ML_DSA_44;
-    if (EVP_PKEY_is_a(key, "ML-DSA-65")) return EVP_PKEY_ML_DSA_65;
-    if (EVP_PKEY_is_a(key, "ML-DSA-87")) return EVP_PKEY_ML_DSA_87;
+    const char* type_name = EVP_PKEY_get0_type_name(key);
+    if (type_name == nullptr) return -1;
+
+    for (const auto& mapping : pqc_mappings) {
+      if (strcmp(type_name, mapping.name) == 0) {
+        return mapping.nid;
+      }
+    }
   }
 #endif
   return type;
