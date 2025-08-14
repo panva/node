@@ -97,6 +97,7 @@
   V(change_string, "change")                                                   \
   V(changes_string, "changes")                                                 \
   V(channel_string, "channel")                                                 \
+  V(ciphertext_string, "ciphertext")                                           \
   V(chunks_sent_since_last_write_string, "chunksSentSinceLastWrite")           \
   V(client_id_string, "clientId")                                              \
   V(clone_unsupported_type_str, "Cannot clone object of unsupported type.")    \
@@ -384,6 +385,7 @@
   V(service_string, "service")                                                 \
   V(session_id_string, "sessionId")                                            \
   V(set_string, "set")                                                         \
+  V(sharedkey_string, "sharedKey")                                             \
   V(shell_string, "shell")                                                     \
   V(signal_string, "signal")                                                   \
   V(sink_string, "sink")                                                       \
