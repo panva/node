@@ -59,11 +59,9 @@ for (const asymmetricKeyType of [
       code: hasOpenSSL(3) ? 'ERR_OSSL_EVP_DECODE_ERROR' : 'ERR_OSSL_EVP_UNSUPPORTED_ALGORITHM',
     });
 
-    for (const pem of [keys.private, keys.private_seed_only, keys.private_priv_only]) {
-      assert.throws(() => createPrivateKey(pem), {
-        code: hasOpenSSL(3) ? 'ERR_OSSL_UNSUPPORTED' : 'ERR_OSSL_EVP_UNSUPPORTED_ALGORITHM',
-      });
-    }
+    assert.throws(() => createPrivateKey(keys.private), {
+      code: hasOpenSSL(3) ? 'ERR_OSSL_UNSUPPORTED' : 'ERR_OSSL_EVP_UNSUPPORTED_ALGORITHM',
+    });
   } else {
     const publicKey = createPublicKey(keys.public);
     assertPublicKey(publicKey);
