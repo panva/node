@@ -203,6 +203,10 @@ void CheckThrow(Environment* env, SignBase::Error error) {
       return THROW_ERR_CRYPTO_OPERATION_FAILED(
           env, "Context parameter is unsupported");
 
+    case SignBase::Error::PrehashUnsupported:
+      return THROW_ERR_CRYPTO_OPERATION_FAILED(
+          env, "Prehashed signing is not supported for this key type");
+
     case SignBase::Error::Init:
     case SignBase::Error::Update:
     case SignBase::Error::PrivateKey:
@@ -241,6 +245,7 @@ bool SupportsContextString(const EVPKeyPointer& key) {
   return false;
 #else
   switch (key.id()) {
+    case EVP_PKEY_ED25519:
     case EVP_PKEY_ED448:
 #if OPENSSL_WITH_PQC
     case EVP_PKEY_ML_DSA_44:
@@ -682,6 +687,10 @@ Maybe<void> SignTraits::AdditionalConfig(
     }
   }
 
+  if (args[offset + 12]->IsTrue()) {
+    params->flags |= SignConfiguration::kHasPrehashed;
+  }
+
   return JustVoid();
 }
 
@@ -690,18 +699,156 @@ bool SignTraits::DeriveBits(Environment* env,
                             ByteSource* out,
                             CryptoJobMode mode) {
   bool can_throw = mode == CryptoJobMode::kCryptoJobSync;
-  auto context = EVPMDCtxPointer::New();
-  if (!context) [[unlikely]]
-    return false;
   const auto& key = params.key.GetAsymmetricKey();
 
   bool has_context = (params.flags & SignConfiguration::kHasContextString &&
                       params.context_string.size() > 0);
+  bool is_prehashed = params.flags & SignConfiguration::kHasPrehashed;
 
-  if (has_context && !SupportsContextString(key)) {
+  if (has_context && !is_prehashed && !SupportsContextString(key)) {
     if (can_throw) crypto::CheckThrow(env, SignBase::Error::ContextUnsupported);
     return false;
   }
+
+  // Prehashed signing: the caller already hashed the data and is providing
+  // the digest directly. Use the low-level EVP_PKEY_sign/EVP_PKEY_verify path.
+  if (is_prehashed) {
+    // One-shot-only algorithms that don't have prehash variants
+    // (ML-DSA, SLH-DSA) are not supported.
+    if (key.isOneShotVariant() && key.id() != EVP_PKEY_ED25519 &&
+        key.id() != EVP_PKEY_ED448) {
+      if (can_throw)
+        crypto::CheckThrow(env, SignBase::Error::PrehashUnsupported);
+      return false;
+    }
+
+    EVPKeyCtxPointer pkctx = key.newCtx();
+    if (!pkctx) [[unlikely]] {
+      if (can_throw) crypto::CheckThrow(env, SignBase::Error::Init);
+      return false;
+    }
+
+    int init_ret;
+    bool is_eddsa = key.id() == EVP_PKEY_ED25519 || key.id() == EVP_PKEY_ED448;
+
+    if (is_eddsa) {
+#ifdef OSSL_SIGNATURE_PARAM_INSTANCE
+      // For Ed25519ph/Ed448ph, use EVP_PKEY_sign_init_ex with INSTANCE param.
+      const char* instance_name =
+          key.id() == EVP_PKEY_ED25519 ? "Ed25519ph" : "Ed448ph";
+
+      // Build OSSL_PARAM array with instance and optional context string.
+      std::vector<OSSL_PARAM> ossl_params;
+      ossl_params.push_back(OSSL_PARAM_construct_utf8_string(
+          OSSL_SIGNATURE_PARAM_INSTANCE, const_cast<char*>(instance_name), 0));
+
+      if (has_context) {
+        ossl_params.push_back(OSSL_PARAM_construct_octet_string(
+            OSSL_SIGNATURE_PARAM_CONTEXT_STRING,
+            const_cast<unsigned char*>(
+                params.context_string.data<unsigned char>()),
+            params.context_string.size()));
+      }
+      ossl_params.push_back(OSSL_PARAM_END);
+
+      switch (params.mode) {
+        case SignConfiguration::Mode::Sign:
+          init_ret = pkctx.initForSignEx(ossl_params.data());
+          break;
+        case SignConfiguration::Mode::Verify:
+          init_ret = pkctx.initForVerifyEx(ossl_params.data());
+          break;
+      }
+#else
+      if (can_throw)
+        crypto::CheckThrow(env, SignBase::Error::PrehashUnsupported);
+      return false;
+#endif  // OSSL_SIGNATURE_PARAM_INSTANCE
+    } else {
+      // RSA, ECDSA, DSA: use standard EVP_PKEY_sign_init path.
+      switch (params.mode) {
+        case SignConfiguration::Mode::Sign:
+          init_ret = pkctx.initForSign();
+          break;
+        case SignConfiguration::Mode::Verify:
+          init_ret = pkctx.initForVerify();
+          break;
+      }
+
+      if (init_ret <= 0) [[unlikely]] {
+        if (can_throw) crypto::CheckThrow(env, SignBase::Error::Init);
+        return false;
+      }
+
+      int padding = params.flags & SignConfiguration::kHasPadding
+                        ? params.padding
+                        : key.getDefaultSignPadding();
+
+      std::optional<int> salt_length =
+          params.flags & SignConfiguration::kHasSaltLength
+              ? std::optional<int>(params.salt_length)
+              : std::nullopt;
+
+      if (!ApplyRSAOptions(key, pkctx.get(), padding, salt_length)) {
+        if (can_throw) crypto::CheckThrow(env, SignBase::Error::PrivateKey);
+        return false;
+      }
+
+      if (!pkctx.setSignatureMd(params.digest)) {
+        if (can_throw) crypto::CheckThrow(env, SignBase::Error::Init);
+        return false;
+      }
+    }
+
+    if (is_eddsa && init_ret <= 0) [[unlikely]] {
+      if (can_throw) crypto::CheckThrow(env, SignBase::Error::Init);
+      return false;
+    }
+
+    ncrypto::Buffer<const unsigned char> data_buf{
+        .data = params.data.data<unsigned char>(),
+        .len = params.data.size(),
+    };
+
+    switch (params.mode) {
+      case SignConfiguration::Mode::Sign: {
+        auto sig = pkctx.sign(data_buf);
+        if (!sig) [[unlikely]] {
+          if (can_throw) crypto::CheckThrow(env, SignBase::Error::PrivateKey);
+          return false;
+        }
+        DCHECK(!sig.isSecure());
+        auto bs = ByteSource::Allocated(sig.release());
+
+        if (UseP1363Encoding(key, params.dsa_encoding)) {
+          *out = ConvertSignatureToP1363(env, key, std::move(bs));
+        } else {
+          *out = std::move(bs);
+        }
+        break;
+      }
+      case SignConfiguration::Mode::Verify: {
+        ncrypto::Buffer<const unsigned char> sig_buf{
+            .data = params.signature.data<unsigned char>(),
+            .len = params.signature.size(),
+        };
+        auto buf = DataPointer::Alloc(1);
+        static_cast<char*>(buf.get())[0] = 0;
+        if (pkctx.verify(sig_buf, data_buf)) {
+          static_cast<char*>(buf.get())[0] = 1;
+        }
+        *out = ByteSource::Allocated(buf.release());
+        break;
+      }
+    }
+
+    return true;
+  }
+
+  // Non-prehashed path: use EVP_DigestSign/EVP_DigestVerify.
+  auto context = EVPMDCtxPointer::New();
+  if (!context) [[unlikely]]
+    return false;
 
   auto ctx = ([&] {
     if (has_context) {

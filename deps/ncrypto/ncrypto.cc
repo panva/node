@@ -3783,6 +3783,23 @@ bool EVPKeyCtxPointer::setSignatureMd(const EVPMDCtxPointer& md) {
          1;
 }
 
+bool EVPKeyCtxPointer::setSignatureMd(const Digest& md) {
+  if (!ctx_ || !md) return false;
+  return EVP_PKEY_CTX_set_signature_md(ctx_.get(), md.get()) == 1;
+}
+
+#if OPENSSL_VERSION_MAJOR >= 3
+int EVPKeyCtxPointer::initForSignEx(const OSSL_PARAM params[]) {
+  if (!ctx_) return 0;
+  return EVP_PKEY_sign_init_ex(ctx_.get(), params);
+}
+
+int EVPKeyCtxPointer::initForVerifyEx(const OSSL_PARAM params[]) {
+  if (!ctx_) return 0;
+  return EVP_PKEY_verify_init_ex(ctx_.get(), params);
+}
+#endif
+
 bool EVPKeyCtxPointer::initForEncrypt() {
   if (!ctx_) return false;
   return EVP_PKEY_encrypt_init(ctx_.get()) == 1;
@@ -4321,6 +4338,27 @@ std::optional<EVP_PKEY_CTX*> EVPMDCtxPointer::signInitWithContext(
 #ifdef OSSL_SIGNATURE_PARAM_CONTEXT_STRING
   EVP_PKEY_CTX* ctx = nullptr;
 
+#ifdef OSSL_SIGNATURE_PARAM_INSTANCE
+  // Ed25519ctx requires the INSTANCE param to enable context string support.
+  // Ed25519 pure mode ignores context strings without this.
+  if (key.id() == EVP_PKEY_ED25519) {
+    const OSSL_PARAM params[] = {
+        OSSL_PARAM_construct_utf8_string(
+            OSSL_SIGNATURE_PARAM_INSTANCE, const_cast<char*>("Ed25519ctx"), 0),
+        OSSL_PARAM_construct_octet_string(
+            OSSL_SIGNATURE_PARAM_CONTEXT_STRING,
+            const_cast<unsigned char*>(context_string.data),
+            context_string.len),
+        OSSL_PARAM_END};
+
+    if (!EVP_DigestSignInit_ex(
+            ctx_.get(), &ctx, nullptr, nullptr, nullptr, key.get(), params)) {
+      return std::nullopt;
+    }
+    return ctx;
+  }
+#endif  // OSSL_SIGNATURE_PARAM_INSTANCE
+
   const OSSL_PARAM params[] = {
       OSSL_PARAM_construct_octet_string(
           OSSL_SIGNATURE_PARAM_CONTEXT_STRING,
@@ -4344,6 +4382,27 @@ std::optional<EVP_PKEY_CTX*> EVPMDCtxPointer::verifyInitWithContext(
     const Buffer<const unsigned char>& context_string) {
 #ifdef OSSL_SIGNATURE_PARAM_CONTEXT_STRING
   EVP_PKEY_CTX* ctx = nullptr;
+
+#ifdef OSSL_SIGNATURE_PARAM_INSTANCE
+  // Ed25519ctx requires the INSTANCE param to enable context string support.
+  // Ed25519 pure mode ignores context strings without this.
+  if (key.id() == EVP_PKEY_ED25519) {
+    const OSSL_PARAM params[] = {
+        OSSL_PARAM_construct_utf8_string(
+            OSSL_SIGNATURE_PARAM_INSTANCE, const_cast<char*>("Ed25519ctx"), 0),
+        OSSL_PARAM_construct_octet_string(
+            OSSL_SIGNATURE_PARAM_CONTEXT_STRING,
+            const_cast<unsigned char*>(context_string.data),
+            context_string.len),
+        OSSL_PARAM_END};
+
+    if (!EVP_DigestVerifyInit_ex(
+            ctx_.get(), &ctx, nullptr, nullptr, nullptr, key.get(), params)) {
+      return std::nullopt;
+    }
+    return ctx;
+  }
+#endif  // OSSL_SIGNATURE_PARAM_INSTANCE
 
   const OSSL_PARAM params[] = {
       OSSL_PARAM_construct_octet_string(
