@@ -203,6 +203,10 @@ void CheckThrow(Environment* env, SignBase::Error error) {
       return THROW_ERR_CRYPTO_OPERATION_FAILED(
           env, "Context parameter is unsupported");
 
+    case SignBase::Error::PrehashUnsupported:
+      return THROW_ERR_CRYPTO_OPERATION_FAILED(
+          env, "Prehashed signing is not supported for this key type");
+
     case SignBase::Error::Init:
     case SignBase::Error::Update:
     case SignBase::Error::PrivateKey:
@@ -241,6 +245,7 @@ bool SupportsContextString(const EVPKeyPointer& key) {
   return false;
 #else
   switch (key.id()) {
+    case EVP_PKEY_ED25519:
     case EVP_PKEY_ED448:
 #if OPENSSL_WITH_PQC
     case EVP_PKEY_ML_DSA_44:
@@ -682,6 +687,10 @@ Maybe<void> SignTraits::AdditionalConfig(
     }
   }
 
+  if (args[offset + 12]->IsTrue()) {
+    params->flags |= SignConfiguration::kHasPrehashed;
+  }
+
   return JustVoid();
 }
 
@@ -690,18 +699,170 @@ bool SignTraits::DeriveBits(Environment* env,
                             ByteSource* out,
                             CryptoJobMode mode) {
   bool can_throw = mode == CryptoJobMode::kCryptoJobSync;
-  auto context = EVPMDCtxPointer::New();
-  if (!context) [[unlikely]]
-    return false;
   const auto& key = params.key.GetAsymmetricKey();
 
   bool has_context = (params.flags & SignConfiguration::kHasContextString &&
                       params.context_string.size() > 0);
+  bool is_prehashed = params.flags & SignConfiguration::kHasPrehashed;
+  bool is_sign = params.mode == SignConfiguration::Mode::Sign;
 
-  if (has_context && !SupportsContextString(key)) {
+  if (has_context && !is_prehashed && !SupportsContextString(key)) {
     if (can_throw) crypto::CheckThrow(env, SignBase::Error::ContextUnsupported);
     return false;
   }
+
+  // Prehashed signing: the caller already hashed the data and is providing
+  // the digest directly. Use the low-level EVP_PKEY_sign/EVP_PKEY_verify path.
+  if (is_prehashed) {
+    const int key_type = key.id();
+
+    EVPKeyCtxPointer pkctx = key.newCtx();
+    if (!pkctx) [[unlikely]] {
+      if (can_throw) crypto::CheckThrow(env, SignBase::Error::Init);
+      return false;
+    }
+
+    int init_ret;
+
+    switch (key_type) {
+      case EVP_PKEY_ED25519:
+      case EVP_PKEY_ED448: {
+#ifdef OSSL_SIGNATURE_PARAM_INSTANCE
+        const char* instance_name =
+            key_type == EVP_PKEY_ED25519 ? "Ed25519ph" : "Ed448ph";
+
+        std::vector<OSSL_PARAM> ossl_params;
+        ossl_params.push_back(
+            OSSL_PARAM_construct_utf8_string(OSSL_SIGNATURE_PARAM_INSTANCE,
+                                             const_cast<char*>(instance_name),
+                                             0));
+
+        if (has_context) {
+          ossl_params.push_back(OSSL_PARAM_construct_octet_string(
+              OSSL_SIGNATURE_PARAM_CONTEXT_STRING,
+              const_cast<unsigned char*>(
+                  params.context_string.data<unsigned char>()),
+              params.context_string.size()));
+        }
+        ossl_params.push_back(OSSL_PARAM_END);
+
+        init_ret = is_sign ? pkctx.initForSignEx(ossl_params.data())
+                           : pkctx.initForVerifyEx(ossl_params.data());
+        break;
+#else
+        if (can_throw)
+          crypto::CheckThrow(env, SignBase::Error::PrehashUnsupported);
+        return false;
+#endif  // OSSL_SIGNATURE_PARAM_INSTANCE
+      }
+
+#if OPENSSL_WITH_PQC
+      case EVP_PKEY_ML_DSA_44:
+      case EVP_PKEY_ML_DSA_65:
+      case EVP_PKEY_ML_DSA_87: {
+        // Context must already be part of the externally computed mu value.
+        if (has_context) {
+          if (can_throw)
+            crypto::CheckThrow(env, SignBase::Error::ContextUnsupported);
+          return false;
+        }
+
+#ifdef OSSL_SIGNATURE_PARAM_MU
+        int mu_flag = 1;
+        std::vector<OSSL_PARAM> ossl_params;
+        ossl_params.push_back(
+            OSSL_PARAM_construct_int(OSSL_SIGNATURE_PARAM_MU, &mu_flag));
+        ossl_params.push_back(OSSL_PARAM_END);
+
+        init_ret = is_sign ? pkctx.initForSignMessage(ossl_params.data())
+                           : pkctx.initForVerifyMessage(ossl_params.data());
+        break;
+#else
+        if (can_throw)
+          crypto::CheckThrow(env, SignBase::Error::PrehashUnsupported);
+        return false;
+#endif  // OSSL_SIGNATURE_PARAM_MU
+      }
+#endif  // OPENSSL_WITH_PQC
+
+      default:
+        if (key.isOneShotVariant()) {
+          if (can_throw)
+            crypto::CheckThrow(env, SignBase::Error::PrehashUnsupported);
+          return false;
+        }
+
+        init_ret = is_sign ? pkctx.initForSign() : pkctx.initForVerify();
+
+        if (init_ret <= 0) [[unlikely]] {
+          if (can_throw) crypto::CheckThrow(env, SignBase::Error::Init);
+          return false;
+        }
+
+        {
+          int padding = params.flags & SignConfiguration::kHasPadding
+                            ? params.padding
+                            : key.getDefaultSignPadding();
+
+          std::optional<int> salt_length =
+              params.flags & SignConfiguration::kHasSaltLength
+                  ? std::optional<int>(params.salt_length)
+                  : std::nullopt;
+
+          if (!ApplyRSAOptions(key, pkctx.get(), padding, salt_length)) {
+            if (can_throw) crypto::CheckThrow(env, SignBase::Error::PrivateKey);
+            return false;
+          }
+
+          if (!pkctx.setSignatureMd(params.digest)) {
+            if (can_throw) crypto::CheckThrow(env, SignBase::Error::Init);
+            return false;
+          }
+        }
+        break;
+    }
+
+    if (init_ret <= 0) [[unlikely]] {
+      if (can_throw) crypto::CheckThrow(env, SignBase::Error::Init);
+      return false;
+    }
+
+    ncrypto::Buffer<const unsigned char> data_buf{
+        .data = params.data.data<unsigned char>(),
+        .len = params.data.size(),
+    };
+
+    if (is_sign) {
+      auto sig = pkctx.sign(data_buf);
+      if (!sig) [[unlikely]] {
+        if (can_throw) crypto::CheckThrow(env, SignBase::Error::PrivateKey);
+        return false;
+      }
+      DCHECK(!sig.isSecure());
+      auto bs = ByteSource::Allocated(sig.release());
+
+      if (UseP1363Encoding(key, params.dsa_encoding)) {
+        *out = ConvertSignatureToP1363(env, key, std::move(bs));
+      } else {
+        *out = std::move(bs);
+      }
+    } else {
+      ncrypto::Buffer<const unsigned char> sig_buf{
+          .data = params.signature.data<unsigned char>(),
+          .len = params.signature.size(),
+      };
+      auto buf = DataPointer::Alloc(1);
+      *buf.get<char>() = pkctx.verify(sig_buf, data_buf);
+      *out = ByteSource::Allocated(buf.release());
+    }
+
+    return true;
+  }
+
+  // Non-prehashed path: use EVP_DigestSign/EVP_DigestVerify.
+  auto context = EVPMDCtxPointer::New();
+  if (!context) [[unlikely]]
+    return false;
 
   auto ctx = ([&] {
     if (has_context) {
@@ -710,21 +871,13 @@ bool SignTraits::DeriveBits(Environment* env,
           .len = params.context_string.size(),
       };
 
-      switch (params.mode) {
-        case SignConfiguration::Mode::Sign:
-          return context.signInitWithContext(key, params.digest, context_buf);
-        case SignConfiguration::Mode::Verify:
-          return context.verifyInitWithContext(key, params.digest, context_buf);
-      }
-    } else {
-      switch (params.mode) {
-        case SignConfiguration::Mode::Sign:
-          return context.signInit(key, params.digest);
-        case SignConfiguration::Mode::Verify:
-          return context.verifyInit(key, params.digest);
-      }
+      return is_sign
+                 ? context.signInitWithContext(key, params.digest, context_buf)
+                 : context.verifyInitWithContext(
+                       key, params.digest, context_buf);
     }
-    UNREACHABLE();
+    return is_sign ? context.signInit(key, params.digest)
+                   : context.verifyInit(key, params.digest);
   })();
 
   if (!ctx.has_value()) [[unlikely]] {
@@ -746,41 +899,34 @@ bool SignTraits::DeriveBits(Environment* env,
     return false;
   }
 
-  switch (params.mode) {
-    case SignConfiguration::Mode::Sign: {
-      if (key.isOneShotVariant()) {
-        auto data = context.signOneShot(params.data);
-        if (!data) [[unlikely]] {
-          if (can_throw) crypto::CheckThrow(env, SignBase::Error::PrivateKey);
-          return false;
-        }
-        DCHECK(!data.isSecure());
-        *out = ByteSource::Allocated(data.release());
-      } else {
-        auto data = context.sign(params.data);
-        if (!data) [[unlikely]] {
-          if (can_throw) crypto::CheckThrow(env, SignBase::Error::PrivateKey);
-          return false;
-        }
-        DCHECK(!data.isSecure());
-        auto bs = ByteSource::Allocated(data.release());
+  if (is_sign) {
+    if (key.isOneShotVariant()) {
+      auto data = context.signOneShot(params.data);
+      if (!data) [[unlikely]] {
+        if (can_throw) crypto::CheckThrow(env, SignBase::Error::PrivateKey);
+        return false;
+      }
+      DCHECK(!data.isSecure());
+      *out = ByteSource::Allocated(data.release());
+    } else {
+      auto data = context.sign(params.data);
+      if (!data) [[unlikely]] {
+        if (can_throw) crypto::CheckThrow(env, SignBase::Error::PrivateKey);
+        return false;
+      }
+      DCHECK(!data.isSecure());
+      auto bs = ByteSource::Allocated(data.release());
 
-        if (UseP1363Encoding(key, params.dsa_encoding)) {
-          *out = ConvertSignatureToP1363(env, key, std::move(bs));
-        } else {
-          *out = std::move(bs);
-        }
+      if (UseP1363Encoding(key, params.dsa_encoding)) {
+        *out = ConvertSignatureToP1363(env, key, std::move(bs));
+      } else {
+        *out = std::move(bs);
       }
-      break;
     }
-    case SignConfiguration::Mode::Verify: {
-      auto buf = DataPointer::Alloc(1);
-      static_cast<char*>(buf.get())[0] = 0;
-      if (context.verify(params.data, params.signature)) {
-        static_cast<char*>(buf.get())[0] = 1;
-      }
-      *out = ByteSource::Allocated(buf.release());
-    }
+  } else {
+    auto buf = DataPointer::Alloc(1);
+    *buf.get<char>() = context.verify(params.data, params.signature);
+    *out = ByteSource::Allocated(buf.release());
   }
 
   return true;

@@ -798,6 +798,7 @@ class EVPKeyCtxPointer final {
   bool setRsaOaepLabel(DataPointer&& data);
 
   bool setSignatureMd(const EVPMDCtxPointer& md);
+  bool setSignatureMd(const Digest& md);
 
   bool publicCheck() const;
   bool privateCheck() const;
@@ -821,6 +822,14 @@ class EVPKeyCtxPointer final {
   bool initForKeygen();
   int initForVerify();
   int initForSign();
+#if OPENSSL_VERSION_MAJOR >= 3
+  int initForVerifyEx(const OSSL_PARAM params[]);
+  int initForSignEx(const OSSL_PARAM params[]);
+#endif
+#ifdef OSSL_SIGNATURE_PARAM_MU
+  int initForSignMessage(const OSSL_PARAM params[]);
+  int initForVerifyMessage(const OSSL_PARAM params[]);
+#endif
 
   static EVPKeyCtxPointer New(const EVPKeyPointer& key);
   static EVPKeyCtxPointer NewFromID(int id);

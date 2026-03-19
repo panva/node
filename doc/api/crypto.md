@@ -5745,6 +5745,9 @@ Throws an error if FIPS mode is not available.
 <!-- YAML
 added: v12.0.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/62345
+    description: Add support for Ed25519 context parameter.
   - version: v24.8.0
     pr-url: https://github.com/nodejs/node/pull/59570
     description: Add support for ML-DSA, Ed448, and SLH-DSA context parameter.
@@ -5786,7 +5789,12 @@ algorithm. If `algorithm` is `null` or `undefined`, then the algorithm is
 dependent upon the key type.
 
 `algorithm` is required to be `null` or `undefined` for Ed25519, Ed448, and
-ML-DSA.
+ML-DSA. For Ed25519 and Ed448, this function uses the pure signature schemes
+from [RFC 8032][] (or Ed25519ctx when a non-empty `context` is provided;
+an empty or absent context uses pure Ed25519). Ed25519 and
+Ed448 signatures produced by this function cannot be verified with
+[`crypto.verifyDigest()`][] because it uses the Ed25519ph and Ed448ph prehash
+variants which have different domain separation.
 
 If `key` is not a [`KeyObject`][], this function behaves as if `key` had been
 passed to [`crypto.createPrivateKey()`][]. If it is an object, the following
@@ -5808,9 +5816,79 @@ additional properties can be passed:
   `crypto.constants.RSA_PSS_SALTLEN_DIGEST` sets the salt length to the digest
   size, `crypto.constants.RSA_PSS_SALTLEN_MAX_SIGN` (default) sets it to the
   maximum permissible value.
-* `context` {ArrayBuffer|Buffer|TypedArray|DataView} For Ed448, ML-DSA, and SLH-DSA,
-  this option specifies the optional context to differentiate signatures generated
-  for different purposes with the same key.
+* `context` {ArrayBuffer|Buffer|TypedArray|DataView} For Ed25519
+  (using Ed25519ctx from [RFC 8032][]), Ed448, ML-DSA, and SLH-DSA,
+  this option specifies the optional context to differentiate signatures
+  generated for different purposes with the same key.
+
+If the `callback` function is provided this function uses libuv's threadpool.
+
+### `crypto.signDigest(algorithm, digest, key[, callback])`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+<!--lint disable maximum-line-length remark-lint-->
+
+* `algorithm` {string | null | undefined}
+* `digest` {ArrayBuffer|Buffer|TypedArray|DataView}
+* `key` {Object|string|ArrayBuffer|Buffer|TypedArray|DataView|KeyObject|CryptoKey}
+* `callback` {Function}
+  * `err` {Error}
+  * `signature` {Buffer}
+* Returns: {Buffer} if the `callback` function is not provided.
+
+<!--lint enable maximum-line-length remark-lint-->
+
+Calculates and returns the signature for `digest` using the given private key
+and algorithm. Unlike [`crypto.sign()`][], this function does not hash the data
+internally — `digest` is expected to be a pre-computed hash digest.
+
+The interpretation of `algorithm` and `digest` depends on the key type:
+
+* RSA, ECDSA, DSA: `algorithm` identifies the hash function used to create
+  `digest`. The resulting signatures are compatible with [`crypto.verify()`][]
+  and signatures produced by [`crypto.sign()`][] can be verified with
+  [`crypto.verifyDigest()`][].
+* Ed25519, Ed448: `algorithm` must be `null` or `undefined`. These keys
+  use the Ed25519ph and Ed448ph prehash variants from [RFC 8032][]
+  respectively. `digest` must be the output of the appropriate prehash
+  function (SHA-512 for Ed25519ph, SHAKE256 with 64-byte output for
+  Ed448ph). The resulting signatures can only be verified with
+  [`crypto.verifyDigest()`][], not with [`crypto.verify()`][], because
+  the prehash variants have different domain separation from the pure
+  Ed25519/Ed448 (or Ed25519ctx with context) variants used by
+  [`crypto.sign()`][] and [`crypto.verify()`][].
+* ML-DSA: `algorithm` must be `null` or `undefined`. `digest` must be the
+  64-byte external mu value per FIPS 204. The resulting signatures are
+  compatible with [`crypto.verify()`][] when the mu value is correctly computed
+  from the message per FIPS 204.
+
+If `key` is not a [`KeyObject`][], this function behaves as if `key` had been
+passed to [`crypto.createPrivateKey()`][]. If it is an object, the following
+additional properties can be passed:
+
+* `dsaEncoding` {string} For DSA and ECDSA, this option specifies the
+  format of the generated signature. It can be one of the following:
+  * `'der'` (default): DER-encoded ASN.1 signature structure encoding `(r, s)`.
+  * `'ieee-p1363'`: Signature format `r || s` as proposed in IEEE-P1363.
+* `padding` {integer} Optional padding value for RSA, one of the following:
+
+  * `crypto.constants.RSA_PKCS1_PADDING` (default)
+  * `crypto.constants.RSA_PKCS1_PSS_PADDING`
+
+  `RSA_PKCS1_PSS_PADDING` will use MGF1 with the same hash function
+  used to create the digest as specified in section 3.1 of [RFC 4055][].
+* `saltLength` {integer} Salt length for when padding is
+  `RSA_PKCS1_PSS_PADDING`. The special value
+  `crypto.constants.RSA_PSS_SALTLEN_DIGEST` sets the salt length to the digest
+  size, `crypto.constants.RSA_PSS_SALTLEN_MAX_SIGN` (default) sets it to the
+  maximum permissible value.
+* `context` {ArrayBuffer|Buffer|TypedArray|DataView} For Ed25519ph and Ed448ph,
+  this option specifies the optional context to differentiate signatures
+  generated for different purposes with the same key. Not supported for ML-DSA
+  keys because the context is already encoded into the mu value.
 
 If the `callback` function is provided this function uses libuv's threadpool.
 
@@ -5870,6 +5948,9 @@ not introduce timing vulnerabilities.
 <!-- YAML
 added: v12.0.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/62345
+    description: Add support for Ed25519 context parameter.
   - version: v24.8.0
     pr-url: https://github.com/nodejs/node/pull/59570
     description: Add support for ML-DSA, Ed448, and SLH-DSA context parameter.
@@ -5917,7 +5998,12 @@ Verifies the given signature for `data` using the given key and algorithm. If
 key type.
 
 `algorithm` is required to be `null` or `undefined` for Ed25519, Ed448, and
-ML-DSA.
+ML-DSA. For Ed25519 and Ed448, this function uses the pure signature schemes
+from [RFC 8032][] (or Ed25519ctx when a non-empty `context` is provided;
+an empty or absent context uses pure Ed25519). Ed25519 and
+Ed448 signatures produced by [`crypto.signDigest()`][] cannot be verified with
+this function because they use the Ed25519ph and Ed448ph prehash variants which
+have different domain separation.
 
 If `key` is not a [`KeyObject`][], this function behaves as if `key` had been
 passed to [`crypto.createPublicKey()`][]. If it is an object, the following
@@ -5939,11 +6025,89 @@ additional properties can be passed:
   `crypto.constants.RSA_PSS_SALTLEN_DIGEST` sets the salt length to the digest
   size, `crypto.constants.RSA_PSS_SALTLEN_MAX_SIGN` (default) sets it to the
   maximum permissible value.
-* `context` {ArrayBuffer|Buffer|TypedArray|DataView} For Ed448, ML-DSA, and SLH-DSA,
-  this option specifies the optional context to differentiate signatures generated
-  for different purposes with the same key.
+* `context` {ArrayBuffer|Buffer|TypedArray|DataView} For Ed25519
+  (using Ed25519ctx from [RFC 8032][]), Ed448, ML-DSA, and SLH-DSA,
+  this option specifies the optional context to differentiate signatures
+  generated for different purposes with the same key.
 
 The `signature` argument is the previously calculated signature for the `data`.
+
+Because public keys can be derived from private keys, a private key or a public
+key may be passed for `key`.
+
+If the `callback` function is provided this function uses libuv's threadpool.
+
+### `crypto.verifyDigest(algorithm, digest, key, signature[, callback])`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+<!--lint disable maximum-line-length remark-lint-->
+
+* `algorithm` {string|null|undefined}
+* `digest` {ArrayBuffer|Buffer|TypedArray|DataView}
+* `key` {Object|string|ArrayBuffer|Buffer|TypedArray|DataView|KeyObject|CryptoKey}
+* `signature` {ArrayBuffer|Buffer|TypedArray|DataView}
+* `callback` {Function}
+  * `err` {Error}
+  * `result` {boolean}
+* Returns: {boolean} `true` or `false` depending on the validity of the
+  signature for the digest and public key if the `callback` function is not
+  provided.
+
+<!--lint enable maximum-line-length remark-lint-->
+
+Verifies the given signature for `digest` using the given key and algorithm.
+Unlike [`crypto.verify()`][], this function does not hash the data
+internally — `digest` is expected to be a pre-computed hash digest.
+
+The interpretation of `algorithm` and `digest` depends on the key type:
+
+* RSA, ECDSA, DSA: `algorithm` identifies the hash function used to create
+  `digest`. Signatures produced by [`crypto.sign()`][] can be verified with
+  this function, and signatures produced by [`crypto.signDigest()`][] can be
+  verified with [`crypto.verify()`][].
+* Ed25519, Ed448: `algorithm` must be `null` or `undefined`. These keys
+  use the Ed25519ph and Ed448ph prehash variants from [RFC 8032][]
+  respectively. `digest` must be the output of the appropriate prehash
+  function (SHA-512 for Ed25519ph, SHAKE256 with 64-byte output for
+  Ed448ph). Only signatures produced by [`crypto.signDigest()`][] can be
+  verified with this function, not those from [`crypto.sign()`][], because
+  the prehash variants have different domain separation from the pure
+  Ed25519/Ed448 (or Ed25519ctx with context) variants used by
+  [`crypto.sign()`][] and [`crypto.verify()`][].
+* ML-DSA: `algorithm` must be `null` or `undefined`. `digest` must be the
+  64-byte external mu value per FIPS 204. Signatures produced by
+  [`crypto.sign()`][] can be verified with this function when the mu value is
+  correctly computed from the message per FIPS 204.
+
+If `key` is not a [`KeyObject`][], this function behaves as if `key` had been
+passed to [`crypto.createPublicKey()`][]. If it is an object, the following
+additional properties can be passed:
+
+* `dsaEncoding` {string} For DSA and ECDSA, this option specifies the
+  format of the signature. It can be one of the following:
+  * `'der'` (default): DER-encoded ASN.1 signature structure encoding `(r, s)`.
+  * `'ieee-p1363'`: Signature format `r || s` as proposed in IEEE-P1363.
+* `padding` {integer} Optional padding value for RSA, one of the following:
+
+  * `crypto.constants.RSA_PKCS1_PADDING` (default)
+  * `crypto.constants.RSA_PKCS1_PSS_PADDING`
+
+  `RSA_PKCS1_PSS_PADDING` will use MGF1 with the same hash function
+  used to create the digest as specified in section 3.1 of [RFC 4055][].
+* `saltLength` {integer} Salt length for when padding is
+  `RSA_PKCS1_PSS_PADDING`. The special value
+  `crypto.constants.RSA_PSS_SALTLEN_DIGEST` sets the salt length to the digest
+  size, `crypto.constants.RSA_PSS_SALTLEN_MAX_SIGN` (default) sets it to the
+  maximum permissible value.
+* `context` {ArrayBuffer|Buffer|TypedArray|DataView} For Ed25519ph and Ed448ph,
+  this option specifies the optional context to differentiate signatures
+  generated for different purposes with the same key. Not supported for ML-DSA
+  keys because the context is already encoded into the mu value.
+
+The `signature` argument is the previously calculated signature for the `digest`.
 
 Because public keys can be derived from private keys, a private key or a public
 key may be passed for `key`.
@@ -6539,6 +6703,7 @@ See the [list of SSL OP Flags][] for details.
 [RFC 4122]: https://www.rfc-editor.org/rfc/rfc4122.txt
 [RFC 5208]: https://www.rfc-editor.org/rfc/rfc5208.txt
 [RFC 5280]: https://www.rfc-editor.org/rfc/rfc5280.txt
+[RFC 8032]: https://www.rfc-editor.org/rfc/rfc8032.txt
 [Web Crypto API documentation]: webcrypto.md
 [`BN_is_prime_ex`]: https://www.openssl.org/docs/man1.1.1/man3/BN_is_prime_ex.html
 [`Buffer`]: buffer.md
@@ -6572,6 +6737,10 @@ See the [list of SSL OP Flags][] for details.
 [`crypto.publicEncrypt()`]: #cryptopublicencryptkey-buffer
 [`crypto.randomBytes()`]: #cryptorandombytessize-callback
 [`crypto.randomFill()`]: #cryptorandomfillbuffer-offset-size-callback
+[`crypto.sign()`]: #cryptosignalgorithm-data-key-callback
+[`crypto.signDigest()`]: #cryptosigndigestalgorithm-digest-key-callback
+[`crypto.verify()`]: #cryptoverifyalgorithm-data-key-signature-callback
+[`crypto.verifyDigest()`]: #cryptoverifydigestalgorithm-digest-key-signature-callback
 [`crypto.webcrypto.getRandomValues()`]: webcrypto.md#cryptogetrandomvaluestypedarray
 [`crypto.webcrypto.subtle`]: webcrypto.md#class-subtlecrypto
 [`decipher.final()`]: #decipherfinaloutputencoding
