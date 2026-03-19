@@ -5746,7 +5746,7 @@ Throws an error if FIPS mode is not available.
 added: v12.0.0
 changes:
   - version: REPLACEME
-    pr-url: https://github.com/nodejs/node/pull/XXXXX
+    pr-url: https://github.com/nodejs/node/pull/62345
     description: Add support for Ed25519 context parameter.
   - version: v24.8.0
     pr-url: https://github.com/nodejs/node/pull/59570
@@ -5930,7 +5930,7 @@ not introduce timing vulnerabilities.
 added: v12.0.0
 changes:
   - version: REPLACEME
-    pr-url: https://github.com/nodejs/node/pull/XXXXX
+    pr-url: https://github.com/nodejs/node/pull/62345
     description: Add support for Ed25519 context parameter.
   - version: v24.8.0
     pr-url: https://github.com/nodejs/node/pull/59570
