@@ -77,12 +77,32 @@ const data = Buffer.from('Hello world');
     saltLength: crypto.constants.RSA_PSS_SALTLEN_AUTO,
   }, sig), true);
 
-  // Cross-verify with crypto.verify
+  // Cross-verify: sign with crypto.signDigest, verify with crypto.verify
   assert.strictEqual(crypto.verify('sha256', data, {
     key: pubKey,
     padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
     saltLength: crypto.constants.RSA_PSS_SALTLEN_AUTO,
   }, sig), true);
+
+  // Cross-verify: sign with crypto.sign, verify with crypto.verifyDigest
+  const sig2 = crypto.sign('sha256', data, {
+    key: privKey,
+    padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+    saltLength: 32,
+  });
+  assert.strictEqual(crypto.verifyDigest('sha256', digest, {
+    key: pubKey,
+    padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+    saltLength: crypto.constants.RSA_PSS_SALTLEN_AUTO,
+  }, sig2), true);
+
+  // Wrong digest
+  const wrongDigest = crypto.createHash('sha256').update(Buffer.from('wrong')).digest();
+  assert.strictEqual(crypto.verifyDigest('sha256', wrongDigest, {
+    key: pubKey,
+    padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+    saltLength: crypto.constants.RSA_PSS_SALTLEN_AUTO,
+  }, sig), false);
 }
 
 // --- RSA-PSS key type (hash/padding/salt baked into key) ---
@@ -97,8 +117,10 @@ const data = Buffer.from('Hello world');
 
   assert.strictEqual(crypto.verifyDigest('sha256', digest, pubKey, sig), true);
 
-  // Cross-verify
+  // Cross-verify: sign with crypto.signDigest, verify with crypto.verify
   assert.strictEqual(crypto.verify('sha256', data, pubKey, sig), true);
+
+  // Cross-verify: sign with crypto.sign, verify with crypto.verifyDigest
   const sig2 = crypto.sign('sha256', data, privKey);
   assert.strictEqual(crypto.verifyDigest('sha256', digest, pubKey, sig2), true);
 
@@ -126,9 +148,10 @@ const data = Buffer.from('Hello world');
 
     assert.strictEqual(crypto.verifyDigest(hash, digest, pubKey, sig), true);
 
-    // Cross-verify with crypto.sign / crypto.verify
+    // Cross-verify: sign with crypto.signDigest, verify with crypto.verify
     assert.strictEqual(crypto.verify(hash, data, pubKey, sig), true);
 
+    // Cross-verify: sign with crypto.sign, verify with crypto.verifyDigest
     const sig2 = crypto.sign(hash, data, privKey);
     assert.strictEqual(crypto.verifyDigest(hash, digest, pubKey, sig2), true);
 
@@ -158,11 +181,28 @@ const data = Buffer.from('Hello world');
     dsaEncoding: 'ieee-p1363',
   }, sig), true);
 
-  // Cross-verify with crypto.verify
+  // Cross-verify: sign with crypto.signDigest, verify with crypto.verify
   assert.strictEqual(crypto.verify('sha256', data, {
     key: pubKey,
     dsaEncoding: 'ieee-p1363',
   }, sig), true);
+
+  // Cross-verify: sign with crypto.sign, verify with crypto.verifyDigest
+  const sig2 = crypto.sign('sha256', data, {
+    key: privKey,
+    dsaEncoding: 'ieee-p1363',
+  });
+  assert.strictEqual(crypto.verifyDigest('sha256', digest, {
+    key: pubKey,
+    dsaEncoding: 'ieee-p1363',
+  }, sig2), true);
+
+  // Wrong digest
+  const wrongDigest = crypto.createHash('sha256').update(Buffer.from('wrong')).digest();
+  assert.strictEqual(crypto.verifyDigest('sha256', wrongDigest, {
+    key: pubKey,
+    dsaEncoding: 'ieee-p1363',
+  }, sig), false);
 }
 
 // --- DSA ---
@@ -177,8 +217,10 @@ const data = Buffer.from('Hello world');
 
   assert.strictEqual(crypto.verifyDigest('sha256', digest, pubKey, sig), true);
 
-  // Cross-verify
+  // Cross-verify: sign with crypto.signDigest, verify with crypto.verify
   assert.strictEqual(crypto.verify('sha256', data, pubKey, sig), true);
+
+  // Cross-verify: sign with crypto.sign, verify with crypto.verifyDigest
   const sig2 = crypto.sign('sha256', data, privKey);
   assert.strictEqual(crypto.verifyDigest('sha256', digest, pubKey, sig2), true);
 
