@@ -852,10 +852,7 @@ bool SignTraits::DeriveBits(Environment* env,
           .len = params.signature.size(),
       };
       auto buf = DataPointer::Alloc(1);
-      static_cast<char*>(buf.get())[0] = 0;
-      if (pkctx.verify(sig_buf, data_buf)) {
-        static_cast<char*>(buf.get())[0] = 1;
-      }
+      *buf.get<char>() = pkctx.verify(sig_buf, data_buf);
       *out = ByteSource::Allocated(buf.release());
     }
 
@@ -928,10 +925,7 @@ bool SignTraits::DeriveBits(Environment* env,
     }
   } else {
     auto buf = DataPointer::Alloc(1);
-    static_cast<char*>(buf.get())[0] = 0;
-    if (context.verify(params.data, params.signature)) {
-      static_cast<char*>(buf.get())[0] = 1;
-    }
+    *buf.get<char>() = context.verify(params.data, params.signature);
     *out = ByteSource::Allocated(buf.release());
   }
 
