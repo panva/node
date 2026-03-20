@@ -290,6 +290,36 @@ if (hasOpenSSL(3, 2)) {
   }));
 }
 
+// --- Async (callback) error handling ---
+{
+  // Non-signing key type error is delivered via callback
+  const x25519Priv = fixtures.readKey('x25519_private.pem', 'ascii');
+  crypto.signDigest('sha256', Buffer.alloc(32), x25519Priv, common.mustCall((err) => {
+    assert(err);
+    assert.match(err.message, /operation not supported for this keytype/);
+  }));
+}
+
+if (hasOpenSSL(3, 2)) {
+  // Wrong digest length error is delivered via callback
+  const edPrivKey = fixtures.readKey('ed25519_private.pem', 'ascii');
+  crypto.signDigest(null, Buffer.alloc(32), edPrivKey, common.mustCall((err) => {
+    assert(err);
+    assert.match(err.message, /invalid digest length/);
+  }));
+}
+
+if (hasOpenSSL(3, 5)) {
+  // PrehashUnsupported error is delivered via callback
+  const mldsaPrivKey = fixtures.readKey('ml_dsa_44_private.pem', 'ascii');
+  crypto.signDigest(null, Buffer.alloc(32), mldsaPrivKey, common.mustCall((err) => {
+    assert(err);
+    // TODO(@panva): revisit how to make CryptoJob async failures retain
+    // and decorate OpenSSL errors.
+    assert.match(err.message, /Deriving bits failed/);
+  }));
+}
+
 // --- Error: unsupported key type for prehashed signing ---
 {
   // ML-DSA keys are one-shot-only and don't support prehashed signing.
@@ -350,6 +380,60 @@ if (hasOpenSSL(3, 2)) {
   }, { code: 'ERR_CRYPTO_INVALID_DIGEST' });
 }
 
+// --- Error: string inputs are rejected (digest must be binary) ---
+{
+  const privKey = fixtures.readKey('rsa_private_2048.pem', 'ascii');
+  const pubKey = fixtures.readKey('rsa_public_2048.pem', 'ascii');
+
+  // 64-byte string (same length as a SHA-512 digest)
+  const strDigest64 = 'a'.repeat(64);
+  assert.throws(() => {
+    crypto.signDigest('sha256', strDigest64, privKey);
+  }, { code: 'ERR_INVALID_ARG_TYPE' });
+
+  assert.throws(() => {
+    crypto.verifyDigest('sha256', strDigest64, pubKey, Buffer.alloc(256));
+  }, { code: 'ERR_INVALID_ARG_TYPE' });
+
+  // 128-byte string
+  const strDigest128 = 'b'.repeat(128);
+  assert.throws(() => {
+    crypto.signDigest('sha256', strDigest128, privKey);
+  }, { code: 'ERR_INVALID_ARG_TYPE' });
+
+  assert.throws(() => {
+    crypto.verifyDigest('sha256', strDigest128, pubKey, Buffer.alloc(256));
+  }, { code: 'ERR_INVALID_ARG_TYPE' });
+}
+
+// --- ECDSA: hash larger than curve order (cross-verify) ---
+// Using SHA-512 (64 bytes) with P-256 (32-byte order) and P-384 (48-byte order).
+// The digest is larger than the curve's order; ECDSA truncates it internally.
+{
+  const curves = [
+    { priv: 'ec_p256_private.pem', pub: 'ec_p256_public.pem' },
+    { priv: 'ec_p384_private.pem', pub: 'ec_p384_public.pem' },
+  ];
+
+  for (const { priv, pub } of curves) {
+    const privKey = fixtures.readKey(priv, 'ascii');
+    const pubKey = fixtures.readKey(pub, 'ascii');
+
+    const digest = crypto.createHash('sha512').update(data).digest();
+
+    // signDigest + verifyDigest
+    const sig = crypto.signDigest('sha512', digest, privKey);
+    assert.strictEqual(crypto.verifyDigest('sha512', digest, pubKey, sig), true);
+
+    // Cross-verify: sign with crypto.signDigest, verify with crypto.verify
+    assert.strictEqual(crypto.verify('sha512', data, pubKey, sig), true);
+
+    // Cross-verify: sign with crypto.sign, verify with crypto.verifyDigest
+    const sig2 = crypto.sign('sha512', data, privKey);
+    assert.strictEqual(crypto.verifyDigest('sha512', digest, pubKey, sig2), true);
+  }
+}
+
 // --- Error: wrong digest length for Ed25519ph/Ed448ph ---
 if (hasOpenSSL(3, 2)) {
   // Ed25519ph requires exactly 64-byte SHA-512 digest
@@ -365,6 +449,17 @@ if (hasOpenSSL(3, 2)) {
     const privKey = fixtures.readKey('ed448_private.pem', 'ascii');
     assert.throws(() => {
       crypto.signDigest(null, Buffer.alloc(32), privKey);
+    }, { code: 'ERR_OSSL_INVALID_DIGEST_LENGTH' });
+  }
+
+  // Ed448ph rejects a valid 128-byte SHAKE256 digest (must be exactly 64 bytes)
+  {
+    const privKey = fixtures.readKey('ed448_private.pem', 'ascii');
+    const shake256_128 = crypto.createHash('shake256', { outputLength: 128 }).update(data).digest();
+    assert.strictEqual(shake256_128.length, 128);
+
+    assert.throws(() => {
+      crypto.signDigest(null, shake256_128, privKey);
     }, { code: 'ERR_OSSL_INVALID_DIGEST_LENGTH' });
   }
 }
