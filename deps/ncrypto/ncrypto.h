@@ -826,6 +826,10 @@ class EVPKeyCtxPointer final {
   int initForVerifyEx(const OSSL_PARAM params[]);
   int initForSignEx(const OSSL_PARAM params[]);
 #endif
+#ifdef OSSL_SIGNATURE_PARAM_MU
+  int initForSignMessage(const OSSL_PARAM params[]);
+  int initForVerifyMessage(const OSSL_PARAM params[]);
+#endif
 
   static EVPKeyCtxPointer New(const EVPKeyPointer& key);
   static EVPKeyCtxPointer NewFromID(int id);

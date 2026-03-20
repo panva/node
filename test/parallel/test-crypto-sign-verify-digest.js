@@ -274,6 +274,35 @@ if (hasOpenSSL(3, 2)) {
   }
 }
 
+// --- ML-DSA external mu (prehashed) ---
+if (hasOpenSSL(3, 5)) {
+  // ML-DSA signDigest/verifyDigest treats input as external mu.
+  // mu is the 64-byte SHAKE-256(tr || M') value that the caller computes.
+  const variants = [
+    { alg: 'ml_dsa_44' },
+    { alg: 'ml_dsa_65' },
+    { alg: 'ml_dsa_87' },
+  ];
+
+  for (const { alg } of variants) {
+    const privKey = fixtures.readKey(`${alg}_private.pem`, 'ascii');
+    const pubKey = fixtures.readKey(`${alg}_public.pem`, 'ascii');
+
+    const mu = crypto.randomBytes(64);
+
+    const sig = crypto.signDigest(null, mu, privKey);
+    assert(Buffer.isBuffer(sig));
+    assert(sig.length > 0);
+
+    // Verify with same mu succeeds
+    assert.strictEqual(crypto.verifyDigest(null, mu, pubKey, sig), true);
+
+    // Verify with wrong mu fails
+    const wrongMu = crypto.randomBytes(64);
+    assert.strictEqual(crypto.verifyDigest(null, wrongMu, pubKey, sig), false);
+  }
+}
+
 // --- Async (callback) mode ---
 {
   const privKey = fixtures.readKey('rsa_private_2048.pem', 'ascii');
@@ -310,30 +339,112 @@ if (hasOpenSSL(3, 2)) {
 }
 
 if (hasOpenSSL(3, 5)) {
-  // PrehashUnsupported error is delivered via callback
+  // ML-DSA async sign+verify with external mu (64-byte pre-computed value)
   const mldsaPrivKey = fixtures.readKey('ml_dsa_44_private.pem', 'ascii');
+  const mldsaPubKey = fixtures.readKey('ml_dsa_44_public.pem', 'ascii');
+  const mu = crypto.randomBytes(64);
+  crypto.signDigest(null, mu, mldsaPrivKey, common.mustSucceed((sig) => {
+    assert(sig.length > 0);
+    crypto.verifyDigest(null, mu, mldsaPubKey, sig, common.mustSucceed((ok) => {
+      assert.strictEqual(ok, true);
+    }));
+  }));
+
+  // Wrong mu length (32 bytes) is rejected asynchronously
   crypto.signDigest(null, Buffer.alloc(32), mldsaPrivKey, common.mustCall((err) => {
     assert(err);
-    // TODO(@panva): revisit how to make CryptoJob async failures retain
-    // and decorate OpenSSL errors.
-    assert.match(err.message, /Deriving bits failed/);
+    assert.match(err.message, /provider signature failure/);
   }));
 }
 
 // --- Error: unsupported key type for prehashed signing ---
 {
-  // ML-DSA keys are one-shot-only and don't support prehashed signing.
+  // ML-DSA rejects wrong mu length (must be exactly 64 bytes).
   if (hasOpenSSL(3, 5)) {
     const privKey = fixtures.readKey('ml_dsa_44_private.pem', 'ascii');
     const pubKey = fixtures.readKey('ml_dsa_44_public.pem', 'ascii');
 
     assert.throws(() => {
       crypto.signDigest(null, Buffer.alloc(32), privKey);
-    }, { code: 'ERR_CRYPTO_OPERATION_FAILED', message: /Prehashed signing is not supported/ });
+    }, /provider signature failure/);
 
     assert.throws(() => {
-      crypto.verifyDigest(null, Buffer.alloc(32), pubKey, Buffer.alloc(64));
-    }, { code: 'ERR_CRYPTO_OPERATION_FAILED', message: /Prehashed signing is not supported/ });
+      crypto.signDigest(null, Buffer.alloc(128), privKey);
+    }, /provider signature failure/);
+
+    // verifyDigest returns false for wrong mu length (not a throw)
+    assert.strictEqual(
+      crypto.verifyDigest(null, Buffer.alloc(32), pubKey, Buffer.alloc(2420)),
+      false,
+    );
+
+    // Context string is not supported with signDigest/verifyDigest for ML-DSA
+    // since context must already be incorporated into the externally computed mu.
+    assert.throws(() => {
+      crypto.signDigest(null, Buffer.alloc(64), { key: privKey, context: Buffer.from('ctx') });
+    }, { code: 'ERR_CRYPTO_OPERATION_FAILED', message: /Context parameter is unsupported/ });
+    assert.throws(() => {
+      crypto.verifyDigest(null, Buffer.alloc(64), { key: pubKey, context: Buffer.from('ctx') },
+                          Buffer.alloc(2420));
+    }, { code: 'ERR_CRYPTO_OPERATION_FAILED', message: /Context parameter is unsupported/ });
+  }
+
+  // ML-DSA external mu cross-verification with crypto.sign/crypto.verify.
+  // Computes mu = SHAKE-256(tr || M', 64) per FIPS 204, where
+  // tr = SHAKE-256(pk, 64) and M' encodes the context.
+  if (hasOpenSSL(3, 5)) {
+    const variants = [
+      { alg: 'ml_dsa_44', sigLen: 2420 },
+      { alg: 'ml_dsa_65', sigLen: 3309 },
+      { alg: 'ml_dsa_87', sigLen: 4627 },
+    ];
+
+    for (const { alg } of variants) {
+      const privKey = fixtures.readKey(`${alg}_private.pem`, 'ascii');
+      const pubKey = fixtures.readKey(`${alg}_public.pem`, 'ascii');
+
+      // Get raw public key bytes for tr computation via JWK export.
+      const pubKeyObj = crypto.createPublicKey(pubKey);
+      const pkBytes = Buffer.from(pubKeyObj.export({ format: 'jwk' }).pub, 'base64url');
+      const tr = crypto.createHash('shake256', { outputLength: 64 }).update(pkBytes).digest();
+
+      const msg = Buffer.from('ML-DSA cross-verify test message');
+
+      // Without context: M' = 0x00 || 0x00 || M
+      {
+        const mPrime = Buffer.concat([Buffer.from([0x00, 0x00]), msg]);
+        const mu = crypto.createHash('shake256', { outputLength: 64 })
+          .update(tr).update(mPrime).digest();
+
+        const sig = crypto.signDigest(null, mu, privKey);
+        assert.strictEqual(crypto.verify(null, msg, pubKey, sig), true);
+
+        const sig2 = crypto.sign(null, msg, privKey);
+        assert.strictEqual(crypto.verifyDigest(null, mu, pubKey, sig2), true);
+      }
+
+      // With context: M' = 0x00 || len(ctx) || ctx || M
+      {
+        const ctx = Buffer.from('test context string');
+        const mPrime = Buffer.concat([Buffer.from([0x00, ctx.length]), ctx, msg]);
+        const mu = crypto.createHash('shake256', { outputLength: 64 })
+          .update(tr).update(mPrime).digest();
+
+        const sig = crypto.signDigest(null, mu, privKey);
+        assert.strictEqual(
+          crypto.verify(null, msg, { key: pubKey, context: ctx }, sig), true);
+
+        const sig2 = crypto.sign(null, msg, { key: privKey, context: ctx });
+        assert.strictEqual(crypto.verifyDigest(null, mu, pubKey, sig2), true);
+
+        // Mismatched context: signDigest with context mu, verify without context
+        assert.strictEqual(crypto.verify(null, msg, pubKey, sig), false);
+
+        // Mismatched context: sign without context, verifyDigest with context mu
+        const sig3 = crypto.sign(null, msg, privKey);
+        assert.strictEqual(crypto.verifyDigest(null, mu, pubKey, sig3), false);
+      }
+    }
   }
 
   // Ed25519ph/Ed448ph require OpenSSL >= 3.2. On older versions, they

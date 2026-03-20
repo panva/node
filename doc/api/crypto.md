@@ -5839,10 +5839,15 @@ Calculates and returns the signature for `digest` using the given private key
 and algorithm. Unlike [`crypto.sign()`][], this function does not hash the data
 internally — `digest` is expected to be a pre-computed hash digest.
 
-For RSA, ECDSA, and DSA keys, `algorithm` identifies the hash function that was
-used to create `digest`. For Ed25519 and Ed448 keys, `algorithm` must be `null`
-or `undefined`, and `digest` must be the output of the appropriate prehash
-function (SHA-512 for Ed25519ph, SHAKE256 with 64-byte output for Ed448ph).
+The interpretation of `algorithm` and `digest` depends on the key type:
+
+* RSA, ECDSA, DSA: `algorithm` identifies the hash function used to create
+  `digest`.
+* Ed25519, Ed448: `algorithm` must be `null` or `undefined`. `digest` must
+  be the output of the appropriate prehash function (SHA-512 for Ed25519ph,
+  SHAKE256 with 64-byte output for Ed448ph).
+* ML-DSA: `algorithm` must be `null` or `undefined`. `digest` must be the
+  64-byte external mu value per FIPS 204.
 
 If `key` is not a [`KeyObject`][], this function behaves as if `key` had been
 passed to [`crypto.createPrivateKey()`][]. If it is an object, the following
@@ -5866,10 +5871,8 @@ additional properties can be passed:
   maximum permissible value.
 * `context` {ArrayBuffer|Buffer|TypedArray|DataView} For Ed25519ph and Ed448ph,
   this option specifies the optional context to differentiate signatures
-  generated for different purposes with the same key.
-
-This function does not support key types that require one-shot signing without
-prehash variants, such as ML-DSA and SLH-DSA.
+  generated for different purposes with the same key. Not supported for ML-DSA
+  keys because the context is already encoded into the mu value.
 
 If the `callback` function is provided this function uses libuv's threadpool.
 
@@ -6037,10 +6040,15 @@ Verifies the given signature for `digest` using the given key and algorithm.
 Unlike [`crypto.verify()`][], this function does not hash the data
 internally — `digest` is expected to be a pre-computed hash digest.
 
-For RSA, ECDSA, and DSA keys, `algorithm` identifies the hash function that was
-used to create `digest`. For Ed25519 and Ed448 keys, `algorithm` must be `null`
-or `undefined`, and `digest` must be the output of the appropriate prehash
-function (SHA-512 for Ed25519ph, SHAKE256 with 64-byte output for Ed448ph).
+The interpretation of `algorithm` and `digest` depends on the key type:
+
+* RSA, ECDSA, DSA: `algorithm` identifies the hash function used to create
+  `digest`.
+* Ed25519, Ed448: `algorithm` must be `null` or `undefined`. `digest` must
+  be the output of the appropriate prehash function (SHA-512 for Ed25519ph,
+  SHAKE256 with 64-byte output for Ed448ph).
+* ML-DSA: `algorithm` must be `null` or `undefined`. `digest` must be the
+  64-byte external mu value per FIPS 204.
 
 If `key` is not a [`KeyObject`][], this function behaves as if `key` had been
 passed to [`crypto.createPublicKey()`][]. If it is an object, the following
@@ -6064,15 +6072,13 @@ additional properties can be passed:
   maximum permissible value.
 * `context` {ArrayBuffer|Buffer|TypedArray|DataView} For Ed25519ph and Ed448ph,
   this option specifies the optional context to differentiate signatures
-  generated for different purposes with the same key.
+  generated for different purposes with the same key. Not supported for ML-DSA
+  keys because the context is already encoded into the mu value.
 
 The `signature` argument is the previously calculated signature for the `digest`.
 
 Because public keys can be derived from private keys, a private key or a public
 key may be passed for `key`.
-
-This function does not support key types that require one-shot verification
-without prehash variants, such as ML-DSA and SLH-DSA.
 
 If the `callback` function is provided this function uses libuv's threadpool.
 

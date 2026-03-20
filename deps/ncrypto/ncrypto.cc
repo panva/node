@@ -3800,6 +3800,18 @@ int EVPKeyCtxPointer::initForVerifyEx(const OSSL_PARAM params[]) {
 }
 #endif
 
+#ifdef OSSL_SIGNATURE_PARAM_MU
+int EVPKeyCtxPointer::initForSignMessage(const OSSL_PARAM params[]) {
+  if (!ctx_) return 0;
+  return EVP_PKEY_sign_message_init(ctx_.get(), nullptr, params);
+}
+
+int EVPKeyCtxPointer::initForVerifyMessage(const OSSL_PARAM params[]) {
+  if (!ctx_) return 0;
+  return EVP_PKEY_verify_message_init(ctx_.get(), nullptr, params);
+}
+#endif
+
 bool EVPKeyCtxPointer::initForEncrypt() {
   if (!ctx_) return false;
   return EVP_PKEY_encrypt_init(ctx_.get()) == 1;

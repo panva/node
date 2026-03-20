@@ -713,12 +713,28 @@ bool SignTraits::DeriveBits(Environment* env,
   // Prehashed signing: the caller already hashed the data and is providing
   // the digest directly. Use the low-level EVP_PKEY_sign/EVP_PKEY_verify path.
   if (is_prehashed) {
+    bool is_eddsa = key.id() == EVP_PKEY_ED25519 || key.id() == EVP_PKEY_ED448;
+#if OPENSSL_WITH_PQC
+    bool is_mldsa = key.id() == EVP_PKEY_ML_DSA_44 ||
+                    key.id() == EVP_PKEY_ML_DSA_65 ||
+                    key.id() == EVP_PKEY_ML_DSA_87;
+#else
+    bool is_mldsa = false;
+#endif
+
     // One-shot-only algorithms that don't have prehash variants
-    // (ML-DSA, SLH-DSA) are not supported.
-    if (key.isOneShotVariant() && key.id() != EVP_PKEY_ED25519 &&
-        key.id() != EVP_PKEY_ED448) {
+    // (SLH-DSA) are not supported.
+    if (key.isOneShotVariant() && !is_eddsa && !is_mldsa) {
       if (can_throw)
         crypto::CheckThrow(env, SignBase::Error::PrehashUnsupported);
+      return false;
+    }
+
+    // For ML-DSA, context must already be part of the externally computed
+    // mu value. Passing a context string separately is not supported.
+    if (has_context && is_mldsa) {
+      if (can_throw)
+        crypto::CheckThrow(env, SignBase::Error::ContextUnsupported);
       return false;
     }
 
@@ -729,7 +745,6 @@ bool SignTraits::DeriveBits(Environment* env,
     }
 
     int init_ret;
-    bool is_eddsa = key.id() == EVP_PKEY_ED25519 || key.id() == EVP_PKEY_ED448;
 
     if (is_eddsa) {
 #ifdef OSSL_SIGNATURE_PARAM_INSTANCE
@@ -764,6 +779,31 @@ bool SignTraits::DeriveBits(Environment* env,
         crypto::CheckThrow(env, SignBase::Error::PrehashUnsupported);
       return false;
 #endif  // OSSL_SIGNATURE_PARAM_INSTANCE
+    } else if (is_mldsa) {
+#ifdef OSSL_SIGNATURE_PARAM_MU
+      // For ML-DSA, use EVP_PKEY_sign_message_init with mu param.
+      // The caller provides the 64-byte mu value directly.
+      // Context string is not passed here — it's already incorporated
+      // into mu by the caller.
+      int mu_flag = 1;
+      std::vector<OSSL_PARAM> ossl_params;
+      ossl_params.push_back(
+          OSSL_PARAM_construct_int(OSSL_SIGNATURE_PARAM_MU, &mu_flag));
+      ossl_params.push_back(OSSL_PARAM_END);
+
+      switch (params.mode) {
+        case SignConfiguration::Mode::Sign:
+          init_ret = pkctx.initForSignMessage(ossl_params.data());
+          break;
+        case SignConfiguration::Mode::Verify:
+          init_ret = pkctx.initForVerifyMessage(ossl_params.data());
+          break;
+      }
+#else
+      if (can_throw)
+        crypto::CheckThrow(env, SignBase::Error::PrehashUnsupported);
+      return false;
+#endif  // OSSL_SIGNATURE_PARAM_MU
     } else {
       // RSA, ECDSA, DSA: use standard EVP_PKEY_sign_init path.
       switch (params.mode) {
