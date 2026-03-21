@@ -248,8 +248,9 @@ if (hasOpenSSL(3, 2)) {
   const wrongDigest = crypto.createHash('sha512').update(Buffer.from('wrong')).digest();
   assert.strictEqual(crypto.verifyDigest(null, wrongDigest, pubKey, sig), false);
 
-  // Note: Ed25519ph signatures are NOT compatible with Ed25519 signatures
-  // (crypto.sign(null, data, privKey)), so no cross-verify with crypto.sign.
+  // Ed25519ph signatures are NOT compatible with Ed25519 signatures.
+  // Different domain separation means cross-verify must fail.
+  assert.strictEqual(crypto.verify(null, data, pubKey, sig), false);
 
   // KeyObject forms
   const privKeyObj = crypto.createPrivateKey(privKey);
@@ -291,6 +292,10 @@ if (hasOpenSSL(3, 2)) {
   // Wrong digest
   const wrongDigest = crypto.createHash('shake256', { outputLength: 64 }).update(Buffer.from('wrong')).digest();
   assert.strictEqual(crypto.verifyDigest(null, wrongDigest, pubKey, sig), false);
+
+  // Ed448ph signatures are NOT compatible with Ed448 signatures.
+  // Different domain separation means cross-verify must fail.
+  assert.strictEqual(crypto.verify(null, data, pubKey, sig), false);
 
   // Ed448ph with context string
   {

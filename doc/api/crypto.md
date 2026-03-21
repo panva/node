@@ -5842,12 +5842,20 @@ internally — `digest` is expected to be a pre-computed hash digest.
 The interpretation of `algorithm` and `digest` depends on the key type:
 
 * RSA, ECDSA, DSA: `algorithm` identifies the hash function used to create
-  `digest`.
-* Ed25519, Ed448: `algorithm` must be `null` or `undefined`. `digest` must
+  `digest`. The resulting signatures are compatible with [`crypto.verify()`][]
+  and signatures produced by [`crypto.sign()`][] can be verified with
+  [`crypto.verifyDigest()`][].
+* Ed25519, Ed448: `algorithm` must be `null` or `undefined`. These keys
+  use the Ed25519ph and Ed448ph prehash variants respectively. `digest` must
   be the output of the appropriate prehash function (SHA-512 for Ed25519ph,
-  SHAKE256 with 64-byte output for Ed448ph).
+  SHAKE256 with 64-byte output for Ed448ph). The resulting signatures are
+  not compatible with [`crypto.sign()`][] or [`crypto.verify()`][] because
+  those use the non-prehash Ed25519/Ed448 variants which have different domain
+  separation.
 * ML-DSA: `algorithm` must be `null` or `undefined`. `digest` must be the
-  64-byte external mu value per FIPS 204.
+  64-byte external mu value per FIPS 204. The resulting signatures are
+  compatible with [`crypto.verify()`][] when the mu value is correctly computed
+  from the message per FIPS 204.
 
 If `key` is not a [`KeyObject`][], this function behaves as if `key` had been
 passed to [`crypto.createPrivateKey()`][]. If it is an object, the following
@@ -6043,12 +6051,20 @@ internally — `digest` is expected to be a pre-computed hash digest.
 The interpretation of `algorithm` and `digest` depends on the key type:
 
 * RSA, ECDSA, DSA: `algorithm` identifies the hash function used to create
-  `digest`.
-* Ed25519, Ed448: `algorithm` must be `null` or `undefined`. `digest` must
+  `digest`. Signatures produced by [`crypto.sign()`][] can be verified with
+  this function, and signatures produced by [`crypto.signDigest()`][] can be
+  verified with [`crypto.verify()`][].
+* Ed25519, Ed448: `algorithm` must be `null` or `undefined`. These keys
+  use the Ed25519ph and Ed448ph prehash variants respectively. `digest` must
   be the output of the appropriate prehash function (SHA-512 for Ed25519ph,
-  SHAKE256 with 64-byte output for Ed448ph).
+  SHAKE256 with 64-byte output for Ed448ph). The resulting signatures are
+  not compatible with [`crypto.sign()`][] or [`crypto.verify()`][] because
+  those use the non-prehash Ed25519/Ed448 variants which have different domain
+  separation.
 * ML-DSA: `algorithm` must be `null` or `undefined`. `digest` must be the
-  64-byte external mu value per FIPS 204.
+  64-byte external mu value per FIPS 204. Signatures produced by
+  [`crypto.sign()`][] can be verified with this function when the mu value is
+  correctly computed from the message per FIPS 204.
 
 If `key` is not a [`KeyObject`][], this function behaves as if `key` had been
 passed to [`crypto.createPublicKey()`][]. If it is an object, the following
@@ -6705,7 +6721,9 @@ See the [list of SSL OP Flags][] for details.
 [`crypto.randomBytes()`]: #cryptorandombytessize-callback
 [`crypto.randomFill()`]: #cryptorandomfillbuffer-offset-size-callback
 [`crypto.sign()`]: #cryptosignalgorithm-data-key-callback
+[`crypto.signDigest()`]: #cryptosigndigestalgorithm-digest-key-callback
 [`crypto.verify()`]: #cryptoverifyalgorithm-data-key-signature-callback
+[`crypto.verifyDigest()`]: #cryptoverifydigestalgorithm-digest-key-signature-callback
 [`crypto.webcrypto.getRandomValues()`]: webcrypto.md#cryptogetrandomvaluestypedarray
 [`crypto.webcrypto.subtle`]: webcrypto.md#class-subtlecrypto
 [`decipher.final()`]: #decipherfinaloutputencoding
