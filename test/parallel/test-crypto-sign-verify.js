@@ -422,11 +422,12 @@ assert.throws(
   { private: fixtures.readKey('ed25519_private.pem', 'ascii'),
     public: fixtures.readKey('ed25519_public.pem', 'ascii'),
     algo: null,
+    supportsContext: hasOpenSSL(3, 2),
     sigLen: 64 },
   { private: fixtures.readKey('ed448_private.pem', 'ascii'),
     public: fixtures.readKey('ed448_public.pem', 'ascii'),
     algo: null,
-    supportsContext: true,
+    supportsContext: hasOpenSSL(3, 2),
     sigLen: 114 },
   { private: fixtures.readKey('rsa_private_2048.pem', 'ascii'),
     public: fixtures.readKey('rsa_public_2048.pem', 'ascii'),
@@ -475,7 +476,7 @@ assert.throws(
                        true);
   });
 
-  if (pair.supportsContext && hasOpenSSL(3, 2)) {
+  if (pair.supportsContext) {
     const data = Buffer.from('Hello world');
     {
       const context = new Uint8Array();
@@ -504,7 +505,7 @@ assert.throws(
       code: 'ERR_OUT_OF_RANGE',
       message: 'context string must be at most 255 bytes',
     });
-  } else if (pair.supportsContext) {
+  } else {
     const data = Buffer.from('Hello world');
     {
       const context = new Uint8Array();
