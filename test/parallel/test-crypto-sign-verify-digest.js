@@ -252,6 +252,11 @@ if (hasOpenSSL(3, 2)) {
   // Different domain separation means cross-verify must fail.
   assert.strictEqual(crypto.verify(null, data, pubKey, sig), false);
 
+  // Ed25519 pure signatures are NOT compatible with Ed25519ph.
+  // sign() output cannot be verified by verifyDigest().
+  const pureSig = crypto.sign(null, data, privKey);
+  assert.strictEqual(crypto.verifyDigest(null, digest, pubKey, pureSig), false);
+
   // KeyObject forms
   const privKeyObj = crypto.createPrivateKey(privKey);
   const pubKeyObj = crypto.createPublicKey(pubKey);
@@ -271,6 +276,9 @@ if (hasOpenSSL(3, 2)) {
       key: pubKey,
       context: Buffer.from('other'),
     }, sig3), false);
+
+    // Ed25519ph+context signatures are NOT compatible with verify(ctx).
+    assert.strictEqual(crypto.verify(null, data, { key: pubKey, context }, sig3), false);
   }
 }
 
@@ -297,6 +305,11 @@ if (hasOpenSSL(3, 2)) {
   // Different domain separation means cross-verify must fail.
   assert.strictEqual(crypto.verify(null, data, pubKey, sig), false);
 
+  // Ed448 pure signatures are NOT compatible with Ed448ph.
+  // sign() output cannot be verified by verifyDigest().
+  const pureSig = crypto.sign(null, data, privKey);
+  assert.strictEqual(crypto.verifyDigest(null, digest, pubKey, pureSig), false);
+
   // Ed448ph with context string
   {
     const context = Buffer.from('my context');
@@ -309,6 +322,17 @@ if (hasOpenSSL(3, 2)) {
       key: pubKey,
       context: Buffer.from('other'),
     }, sig2), false);
+
+    // Ed448ph+context signatures are NOT compatible with verify(ctx).
+    assert.strictEqual(crypto.verify(null, data, { key: pubKey, context }, sig2), false);
+  }
+
+  // Ed448+context signatures are NOT compatible with Ed448ph.
+  // sign(ctx) output cannot be verified by verifyDigest(ctx).
+  {
+    const context = Buffer.from('my context');
+    const ctxSig = crypto.sign(null, data, { key: privKey, context });
+    assert.strictEqual(crypto.verifyDigest(null, digest, { key: pubKey, context }, ctxSig), false);
   }
 
   // Ed448ph with empty context string
