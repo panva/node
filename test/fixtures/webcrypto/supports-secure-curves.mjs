@@ -1,6 +1,7 @@
 import { hasOpenSSL } from '../../common/crypto.js'
 
 const supportsContext = hasOpenSSL(3, 2);
+const supportsPrehash = supportsContext;
 
 const { subtle } = globalThis.crypto;
 
@@ -19,6 +20,11 @@ export const vectors = {
     [!boringSSL, 'Ed448'],
     [!boringSSL, { name: 'Ed448', context: Buffer.alloc(0) }],
     [!boringSSL && supportsContext, { name: 'Ed448', context: Buffer.alloc(32) }],
+  ],
+  'signDigest': [
+    [!boringSSL && supportsPrehash, 'Ed448'],
+    [!boringSSL && supportsPrehash, { name: 'Ed448', context: Buffer.alloc(0) }],
+    [!boringSSL && supportsPrehash, { name: 'Ed448', context: Buffer.alloc(32) }],
   ],
   'generateKey': [
     [!boringSSL, 'X448'],

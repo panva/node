@@ -1389,6 +1389,59 @@ The algorithms currently supported include:
 * `'RSA-PSS'`
 * `'RSASSA-PKCS1-v1_5'`
 
+### `subtle.signDigest(algorithm, key, digest)`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+<!--lint disable maximum-line-length remark-lint-->
+
+* `algorithm` {string|Algorithm|RsaPssParams|EcdsaParams|ContextParams}
+* `key` {CryptoKey}
+* `digest` {ArrayBuffer|TypedArray|DataView|Buffer}
+* Returns: {Promise} Fulfills with an {ArrayBuffer} upon success.
+
+<!--lint enable maximum-line-length remark-lint-->
+
+Using the method and parameters given by `algorithm` and the keying material
+provided by `key`, this method attempts to generate a cryptographic
+signature of a pre-computed `digest`. If successful, the returned promise is
+resolved with an {ArrayBuffer} containing the generated signature.
+
+Unlike [`subtle.sign()`][], this method does not hash the input data. The caller
+is responsible for providing the correct digest for the algorithm.
+
+The digest length is validated based on the algorithm:
+
+* For RSA algorithms, the digest length must match the digest size of the hash
+  function identified by the key's `hash` attribute.
+* For ECDSA, the digest length must match the digest size of the hash function
+  identified by the `hash` member of the algorithm parameters.
+* For Ed25519, the digest must be exactly 64 bytes (SHA-512 output). This
+  operation uses Ed25519ph (prehashed EdDSA) as specified in [RFC 8032][]
+  Section 5.1. An optional `context` parameter can be provided via
+  {ContextParams}. A signature produced with `signDigest` cannot be verified
+  with [`subtle.verify()`][], and vice versa.
+* For Ed448, the digest must be exactly 64 bytes (SHAKE256 output). This
+  operation uses Ed448ph (prehashed EdDSA) as specified in [RFC 8032][]
+  Section 5.2. An optional `context` parameter can be provided via
+  {ContextParams}. A signature produced with `signDigest` cannot be verified
+  with [`subtle.verify()`][], and vice versa.
+* For ML-DSA, the digest must be exactly 64 bytes (external mu). This
+  operation uses the external mu prehash mode.
+
+The algorithms currently supported include:
+
+* `'ECDSA'`
+* `'Ed25519'`
+* `'Ed448'`[^secure-curves]
+* `'ML-DSA-44'`[^modern-algos]
+* `'ML-DSA-65'`[^modern-algos]
+* `'ML-DSA-87'`[^modern-algos]
+* `'RSA-PSS'`
+* `'RSASSA-PKCS1-v1_5'`
+
 ### `subtle.unwrapKey(format, wrappedKey, unwrappingKey, unwrapAlgo, unwrappedKeyAlgo, extractable, keyUsages)`
 
 <!-- YAML
@@ -1505,6 +1558,44 @@ The algorithms currently supported include:
 * `'HMAC'`
 * `'KMAC128'`[^secure-curves]
 * `'KMAC256'`[^secure-curves]
+* `'ML-DSA-44'`[^modern-algos]
+* `'ML-DSA-65'`[^modern-algos]
+* `'ML-DSA-87'`[^modern-algos]
+* `'RSA-PSS'`
+* `'RSASSA-PKCS1-v1_5'`
+
+### `subtle.verifyDigest(algorithm, key, signature, digest)`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+<!--lint disable maximum-line-length remark-lint-->
+
+* `algorithm` {string|Algorithm|RsaPssParams|EcdsaParams|ContextParams}
+* `key` {CryptoKey}
+* `signature` {ArrayBuffer|TypedArray|DataView|Buffer}
+* `digest` {ArrayBuffer|TypedArray|DataView|Buffer}
+* Returns: {Promise} Fulfills with a {boolean} upon success.
+
+<!--lint enable maximum-line-length remark-lint-->
+
+Using the method and parameters given in `algorithm` and the keying material
+provided by `key`, this method attempts to verify that `signature` is
+a valid cryptographic signature of a pre-computed `digest`. The returned
+promise is resolved with either `true` or `false`.
+
+Unlike [`subtle.verify()`][], this method does not hash the input data. The
+caller is responsible for providing the correct digest for the algorithm.
+
+See [`subtle.signDigest()`][] for details on digest length validation and
+algorithm-specific behavior.
+
+The algorithms currently supported include:
+
+* `'ECDSA'`
+* `'Ed25519'`
+* `'Ed448'`[^secure-curves]
 * `'ML-DSA-44'`[^modern-algos]
 * `'ML-DSA-65'`[^modern-algos]
 * `'ML-DSA-87'`[^modern-algos]
@@ -2701,6 +2792,7 @@ The length (in bytes) of the random salt to use.
 [Key usages]: #cryptokeyusages
 [Modern Algorithms in the Web Cryptography API]: #modern-algorithms-in-the-web-cryptography-api
 [RFC 4122]: https://www.rfc-editor.org/rfc/rfc4122.txt
+[RFC 8032]: https://www.rfc-editor.org/rfc/rfc8032
 [Secure Curves in the Web Cryptography API]: #secure-curves-in-the-web-cryptography-api
 [Web Crypto API]: https://www.w3.org/TR/WebCryptoAPI/
 [`SubtleCrypto.supports()`]: #static-method-subtlecryptosupportsoperation-algorithm-lengthoradditionalalgorithm
@@ -2718,6 +2810,8 @@ The length (in bytes) of the random salt to use.
 [`subtle.getPublicKey()`]: #subtlegetpublickeykey-keyusages
 [`subtle.importKey()`]: #subtleimportkeyformat-keydata-algorithm-extractable-keyusages
 [`subtle.sign()`]: #subtlesignalgorithm-key-data
+[`subtle.signDigest()`]: #subtlesigndigestalgorithm-key-digest
 [`subtle.unwrapKey()`]: #subtleunwrapkeyformat-wrappedkey-unwrappingkey-unwrapalgo-unwrappedkeyalgo-extractable-keyusages
 [`subtle.verify()`]: #subtleverifyalgorithm-key-signature-data
+[`subtle.verifyDigest()`]: #subtleverifydigestalgorithm-key-signature-digest
 [`subtle.wrapKey()`]: #subtlewrapkeyformat-key-wrappingkey-wrapalgo

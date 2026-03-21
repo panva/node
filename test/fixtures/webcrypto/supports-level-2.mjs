@@ -1,4 +1,8 @@
+import { hasOpenSSL } from '../../common/crypto.js'
+
 const { subtle } = globalThis.crypto;
+
+const supportsEddsaPrehash = hasOpenSSL(3, 2);
 
 const RSA_KEY_GEN = {
   modulusLength: 2048,
@@ -44,6 +48,24 @@ export const vectors = {
     [false, 'ECDSA'],
 
     [true, 'HMAC'],
+  ],
+  'signDigest': [
+    [false, 'Invalid'],
+    [false, 'SHA-1'],
+
+    [supportsEddsaPrehash, 'Ed25519'],
+
+    [true, 'RSASSA-PKCS1-v1_5'],
+
+    [true, { name: 'RSA-PSS', saltLength: 32 }],
+    [false, 'RSA-PSS'],
+
+    [true, { name: 'ECDSA', hash: 'SHA-256' }],
+    [false, { name: 'ECDSA', hash: 'Invalid' }],
+    [false, { name: 'ECDSA', hash: 'Ed25519' }],
+    [false, 'ECDSA'],
+
+    [false, 'HMAC'],
   ],
   'digest': [
     [true, 'SHA-1'],

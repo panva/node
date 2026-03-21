@@ -76,6 +76,16 @@ const { privateKey } = await subtle.generateKey(
 
 await subtle.getPublicKey(privateKey, ['verify']);
 
+const ecdsaDigest = await subtle.digest('SHA-256', data);
+
+const digestSig = await subtle.signDigest(
+  { name: 'ECDSA', hash: 'SHA-256' }, privateKey, ecdsaDigest);
+
+const ecdsaPublicKey = await subtle.getPublicKey(privateKey, ['verify']);
+
+await subtle.verifyDigest(
+  { name: 'ECDSA', hash: 'SHA-256' }, ecdsaPublicKey, digestSig, ecdsaDigest);
+
 if (hasOpenSSL(3, 5)) {
   const kemPair = await subtle.generateKey(
     { name: 'ML-KEM-768' }, false,

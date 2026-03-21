@@ -23,6 +23,7 @@ for await (const mod of sources) {
 }
 
 vectors.verify = vectors.sign;
+vectors.verifyDigest = vectors.signDigest;
 vectors.decrypt = vectors.encrypt;
 vectors.decapsulateBits = vectors.encapsulateBits;
 

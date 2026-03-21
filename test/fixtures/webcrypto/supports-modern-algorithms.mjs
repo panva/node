@@ -47,6 +47,18 @@ export const vectors = {
     [kmac, { name: 'KMAC128', outputLength: 256 }],
     [kmac, { name: 'KMAC256', outputLength: 256 }],
   ],
+  'signDigest': [
+    [pqc, 'ML-DSA-44'],
+    [pqc, 'ML-DSA-65'],
+    [pqc, 'ML-DSA-87'],
+    [false, 'Argon2d'],
+    [false, 'Argon2i'],
+    [false, 'Argon2id'],
+    [false, 'KMAC128'],
+    [false, 'KMAC256'],
+    [false, { name: 'KMAC128', outputLength: 256 }],
+    [false, { name: 'KMAC256', outputLength: 256 }],
+  ],
   'generateKey': [
     [pqc, 'ML-DSA-44'],
     [pqc, 'ML-DSA-65'],
