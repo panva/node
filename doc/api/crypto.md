@@ -5811,9 +5811,10 @@ additional properties can be passed:
   `crypto.constants.RSA_PSS_SALTLEN_DIGEST` sets the salt length to the digest
   size, `crypto.constants.RSA_PSS_SALTLEN_MAX_SIGN` (default) sets it to the
   maximum permissible value.
-* `context` {ArrayBuffer|Buffer|TypedArray|DataView} For Ed25519, Ed448, ML-DSA, and SLH-DSA,
-  this option specifies the optional context to differentiate signatures generated
-  for different purposes with the same key.
+* `context` {ArrayBuffer|Buffer|TypedArray|DataView} For Ed25519
+  (using Ed25519ctx from [RFC 8032][]), Ed448, ML-DSA, and SLH-DSA,
+  this option specifies the optional context to differentiate signatures
+  generated for different purposes with the same key.
 
 If the `callback` function is provided this function uses libuv's threadpool.
 
@@ -5846,12 +5847,13 @@ The interpretation of `algorithm` and `digest` depends on the key type:
   and signatures produced by [`crypto.sign()`][] can be verified with
   [`crypto.verifyDigest()`][].
 * Ed25519, Ed448: `algorithm` must be `null` or `undefined`. These keys
-  use the Ed25519ph and Ed448ph prehash variants respectively. `digest` must
-  be the output of the appropriate prehash function (SHA-512 for Ed25519ph,
-  SHAKE256 with 64-byte output for Ed448ph). The resulting signatures are
-  not compatible with [`crypto.sign()`][] or [`crypto.verify()`][] because
-  those use the non-prehash Ed25519/Ed448 variants which have different domain
-  separation.
+  use the Ed25519ph and Ed448ph prehash variants from [RFC 8032][]
+  respectively. `digest` must be the output of the appropriate prehash
+  function (SHA-512 for Ed25519ph, SHAKE256 with 64-byte output for
+  Ed448ph). The resulting signatures are not compatible with
+  [`crypto.sign()`][] or [`crypto.verify()`][] because those use the
+  pure Ed25519/Ed448 (or Ed25519ctx with context) variants which have
+  different domain separation.
 * ML-DSA: `algorithm` must be `null` or `undefined`. `digest` must be the
   64-byte external mu value per FIPS 204. The resulting signatures are
   compatible with [`crypto.verify()`][] when the mu value is correctly computed
@@ -6012,9 +6014,10 @@ additional properties can be passed:
   `crypto.constants.RSA_PSS_SALTLEN_DIGEST` sets the salt length to the digest
   size, `crypto.constants.RSA_PSS_SALTLEN_MAX_SIGN` (default) sets it to the
   maximum permissible value.
-* `context` {ArrayBuffer|Buffer|TypedArray|DataView} For Ed25519, Ed448, ML-DSA, and SLH-DSA,
-  this option specifies the optional context to differentiate signatures generated
-  for different purposes with the same key.
+* `context` {ArrayBuffer|Buffer|TypedArray|DataView} For Ed25519
+  (using Ed25519ctx from [RFC 8032][]), Ed448, ML-DSA, and SLH-DSA,
+  this option specifies the optional context to differentiate signatures
+  generated for different purposes with the same key.
 
 The `signature` argument is the previously calculated signature for the `data`.
 
@@ -6055,12 +6058,13 @@ The interpretation of `algorithm` and `digest` depends on the key type:
   this function, and signatures produced by [`crypto.signDigest()`][] can be
   verified with [`crypto.verify()`][].
 * Ed25519, Ed448: `algorithm` must be `null` or `undefined`. These keys
-  use the Ed25519ph and Ed448ph prehash variants respectively. `digest` must
-  be the output of the appropriate prehash function (SHA-512 for Ed25519ph,
-  SHAKE256 with 64-byte output for Ed448ph). The resulting signatures are
-  not compatible with [`crypto.sign()`][] or [`crypto.verify()`][] because
-  those use the non-prehash Ed25519/Ed448 variants which have different domain
-  separation.
+  use the Ed25519ph and Ed448ph prehash variants from [RFC 8032][]
+  respectively. `digest` must be the output of the appropriate prehash
+  function (SHA-512 for Ed25519ph, SHAKE256 with 64-byte output for
+  Ed448ph). The resulting signatures are not compatible with
+  [`crypto.sign()`][] or [`crypto.verify()`][] because those use the
+  pure Ed25519/Ed448 (or Ed25519ctx with context) variants which have
+  different domain separation.
 * ML-DSA: `algorithm` must be `null` or `undefined`. `digest` must be the
   64-byte external mu value per FIPS 204. Signatures produced by
   [`crypto.sign()`][] can be verified with this function when the mu value is
@@ -6687,6 +6691,7 @@ See the [list of SSL OP Flags][] for details.
 [RFC 4122]: https://www.rfc-editor.org/rfc/rfc4122.txt
 [RFC 5208]: https://www.rfc-editor.org/rfc/rfc5208.txt
 [RFC 5280]: https://www.rfc-editor.org/rfc/rfc5280.txt
+[RFC 8032]: https://www.rfc-editor.org/rfc/rfc8032.txt
 [Web Crypto API documentation]: webcrypto.md
 [`BN_is_prime_ex`]: https://www.openssl.org/docs/man1.1.1/man3/BN_is_prime_ex.html
 [`Buffer`]: buffer.md
