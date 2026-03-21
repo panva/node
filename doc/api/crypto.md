@@ -5789,7 +5789,11 @@ algorithm. If `algorithm` is `null` or `undefined`, then the algorithm is
 dependent upon the key type.
 
 `algorithm` is required to be `null` or `undefined` for Ed25519, Ed448, and
-ML-DSA.
+ML-DSA. For Ed25519 and Ed448, this function uses the pure signature schemes
+from [RFC 8032][] (or Ed25519ctx when a `context` is provided). Ed25519 and
+Ed448 signatures produced by this function cannot be verified with
+[`crypto.verifyDigest()`][] because it uses the Ed25519ph and Ed448ph prehash
+variants which have different domain separation.
 
 If `key` is not a [`KeyObject`][], this function behaves as if `key` had been
 passed to [`crypto.createPrivateKey()`][]. If it is an object, the following
@@ -5850,10 +5854,11 @@ The interpretation of `algorithm` and `digest` depends on the key type:
   use the Ed25519ph and Ed448ph prehash variants from [RFC 8032][]
   respectively. `digest` must be the output of the appropriate prehash
   function (SHA-512 for Ed25519ph, SHAKE256 with 64-byte output for
-  Ed448ph). The resulting signatures are not compatible with
-  [`crypto.sign()`][] or [`crypto.verify()`][] because those use the
-  pure Ed25519/Ed448 (or Ed25519ctx with context) variants which have
-  different domain separation.
+  Ed448ph). The resulting signatures can only be verified with
+  [`crypto.verifyDigest()`][], not with [`crypto.verify()`][], because
+  the prehash variants have different domain separation from the pure
+  Ed25519/Ed448 (or Ed25519ctx with context) variants used by
+  [`crypto.sign()`][] and [`crypto.verify()`][].
 * ML-DSA: `algorithm` must be `null` or `undefined`. `digest` must be the
   64-byte external mu value per FIPS 204. The resulting signatures are
   compatible with [`crypto.verify()`][] when the mu value is correctly computed
@@ -5992,7 +5997,11 @@ Verifies the given signature for `data` using the given key and algorithm. If
 key type.
 
 `algorithm` is required to be `null` or `undefined` for Ed25519, Ed448, and
-ML-DSA.
+ML-DSA. For Ed25519 and Ed448, this function uses the pure signature schemes
+from [RFC 8032][] (or Ed25519ctx when a `context` is provided). Ed25519 and
+Ed448 signatures produced by [`crypto.signDigest()`][] cannot be verified with
+this function because they use the Ed25519ph and Ed448ph prehash variants which
+have different domain separation.
 
 If `key` is not a [`KeyObject`][], this function behaves as if `key` had been
 passed to [`crypto.createPublicKey()`][]. If it is an object, the following
@@ -6061,10 +6070,11 @@ The interpretation of `algorithm` and `digest` depends on the key type:
   use the Ed25519ph and Ed448ph prehash variants from [RFC 8032][]
   respectively. `digest` must be the output of the appropriate prehash
   function (SHA-512 for Ed25519ph, SHAKE256 with 64-byte output for
-  Ed448ph). The resulting signatures are not compatible with
-  [`crypto.sign()`][] or [`crypto.verify()`][] because those use the
-  pure Ed25519/Ed448 (or Ed25519ctx with context) variants which have
-  different domain separation.
+  Ed448ph). Only signatures produced by [`crypto.signDigest()`][] can be
+  verified with this function, not those from [`crypto.sign()`][], because
+  the prehash variants have different domain separation from the pure
+  Ed25519/Ed448 (or Ed25519ctx with context) variants used by
+  [`crypto.sign()`][] and [`crypto.verify()`][].
 * ML-DSA: `algorithm` must be `null` or `undefined`. `digest` must be the
   64-byte external mu value per FIPS 204. Signatures produced by
   [`crypto.sign()`][] can be verified with this function when the mu value is
