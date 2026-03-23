@@ -8,6 +8,10 @@
 #include "v8.h"
 
 #include <cstdio>
+#if OPENSSL_VERSION_MAJOR >= 4
+#include <openssl/core_names.h>
+#include <openssl/params.h>
+#endif
 
 namespace node {
 
@@ -473,7 +477,9 @@ HashConfig::HashConfig(HashConfig&& other) noexcept
     : mode(other.mode),
       in(std::move(other.in)),
       digest(other.digest),
-      length(other.length) {}
+      length(other.length),
+      function_name(std::move(other.function_name)),
+      customization(std::move(other.customization)) {}
 
 HashConfig& HashConfig::operator=(HashConfig&& other) noexcept {
   if (&other == this) return *this;
@@ -483,8 +489,11 @@ HashConfig& HashConfig::operator=(HashConfig&& other) noexcept {
 
 void HashConfig::MemoryInfo(MemoryTracker* tracker) const {
   // If the Job is sync, then the HashConfig does not own the data.
-  if (mode == kCryptoJobAsync)
+  if (mode == kCryptoJobAsync) {
     tracker->TrackFieldWithSize("in", in.size());
+    tracker->TrackFieldWithSize("function_name", function_name.size());
+    tracker->TrackFieldWithSize("customization", customization.size());
+  }
 }
 
 MaybeLocal<Value> HashTraits::EncodeOutput(Environment* env,
@@ -534,6 +543,20 @@ Maybe<void> HashTraits::AdditionalConfig(
     }
   }
 
+  // Optional cSHAKE parameters: functionName and customization
+  if (args.Length() > static_cast<int>(offset + 3) &&
+      !args[offset + 3]->IsUndefined()) {
+    ArrayBufferOrViewContents<char> fn(args[offset + 3]);
+    params->function_name =
+        mode == kCryptoJobAsync ? fn.ToCopy() : fn.ToByteSource();
+  }
+  if (args.Length() > static_cast<int>(offset + 4) &&
+      !args[offset + 4]->IsUndefined()) {
+    ArrayBufferOrViewContents<char> cs(args[offset + 4]);
+    params->customization =
+        mode == kCryptoJobAsync ? cs.ToCopy() : cs.ToByteSource();
+  }
+
   return JustVoid();
 }
 
@@ -543,9 +566,64 @@ bool HashTraits::DeriveBits(Environment* env,
                             CryptoJobMode mode,
                             CryptoErrorStore* errors) {
   auto ctx = EVPMDCtxPointer::New();
+  const EVP_MD* digest_to_use = params.digest;
 
-  if (!ctx.digestInit(params.digest) || !ctx.digestUpdate(params.in))
-      [[unlikely]] {
+#if OPENSSL_VERSION_MAJOR >= 4
+  const bool has_cshake_params =
+      params.function_name.size() > 0 || params.customization.size() > 0;
+  if (has_cshake_params) {
+    // OpenSSL 4 exposes cSHAKE as a distinct algorithm from SHAKE; switch
+    // to the CSHAKE-* variant and cache the fetch for the process lifetime.
+    if (EVP_MD_is_a(params.digest, "SHAKE128")) {
+      static EVP_MD* const cshake128 =
+          EVP_MD_fetch(nullptr, "CSHAKE-128", nullptr);
+      digest_to_use = cshake128;
+    } else if (EVP_MD_is_a(params.digest, "SHAKE256")) {
+      static EVP_MD* const cshake256 =
+          EVP_MD_fetch(nullptr, "CSHAKE-256", nullptr);
+      digest_to_use = cshake256;
+    } else {
+      // The JS layer only exposes function-name/customization for cSHAKE;
+      // fail defensively rather than silently ignoring them on a digest
+      // that does not honor these parameters.
+      return false;
+    }
+    if (digest_to_use == nullptr) [[unlikely]] {
+      return false;
+    }
+  }
+#endif  // OPENSSL_VERSION_MAJOR >= 4
+
+  if (!ctx.digestInit(digest_to_use)) [[unlikely]] {
+    return false;
+  }
+
+#if OPENSSL_VERSION_MAJOR >= 4
+  // cSHAKE parameters must be set after digestInit but before digestUpdate.
+  if (has_cshake_params) {
+    // At most two params plus terminator.
+    OSSL_PARAM ossl_params[3];
+    int idx = 0;
+    if (params.function_name.size() > 0) {
+      ossl_params[idx++] = OSSL_PARAM_construct_utf8_string(
+          OSSL_DIGEST_PARAM_FUNCTION_NAME,
+          const_cast<char*>(params.function_name.data<char>()),
+          params.function_name.size());
+    }
+    if (params.customization.size() > 0) {
+      ossl_params[idx++] = OSSL_PARAM_construct_utf8_string(
+          OSSL_DIGEST_PARAM_CUSTOMIZATION,
+          const_cast<char*>(params.customization.data<char>()),
+          params.customization.size());
+    }
+    ossl_params[idx] = OSSL_PARAM_construct_end();
+    if (EVP_MD_CTX_set_params(ctx.get(), ossl_params) != 1) [[unlikely]] {
+      return false;
+    }
+  }
+#endif  // OPENSSL_VERSION_MAJOR >= 4
+
+  if (!ctx.digestUpdate(params.in)) [[unlikely]] {
     return false;
   }
 
