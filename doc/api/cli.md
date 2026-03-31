@@ -786,7 +786,7 @@ added:
 - v20.15.0
 changes:
   - version:
-    - REPLACEME
+    - v26.0.0
     pr-url: https://github.com/nodejs/node/pull/62132
     description: Node.js now automatically disables the trap handler when there is not
                  enough virtual memory available at startup to allocate one cage.
@@ -1325,7 +1325,9 @@ Enable experimental support for storage inspection
 ### `--experimental-stream-iter`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 > Stability: 1 - Experimental

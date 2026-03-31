@@ -948,7 +948,7 @@ added:
  - v19.9.0
  - v18.19.0
 changes:
-  - version: REPLACEME
+  - version: v26.0.0
     pr-url: https://github.com/nodejs/node/pull/61766
     description: Custom thenables will no longer be wrapped in native Promises.
                  Non-thenables will be returned with a warning.
@@ -1861,6 +1861,7 @@ Emitted when [`process.execve()`][] is invoked.
 added:
  - v25.9.0
  - v24.15.0
+ - v26.0.0
 -->
 
 These channels are emitted for each [`locks.request()`][] call. See

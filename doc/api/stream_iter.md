@@ -521,7 +521,9 @@ Including the `node:` prefix on the module specifier is optional.
 ### `from(input)`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `input` {string|ArrayBuffer|ArrayBufferView|Iterable|AsyncIterable|Object}
@@ -561,7 +563,9 @@ run().catch(console.error);
 ### `fromSync(input)`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `input` {string|ArrayBuffer|ArrayBufferView|Iterable|Object}
@@ -591,7 +595,9 @@ console.log(textSync(fromSync('hello'))); // 'hello'
 ### `pipeTo(source[, ...transforms], writer[, options])`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `source` {AsyncIterable|Iterable} The data source.
@@ -648,7 +654,9 @@ run().catch(console.error);
 ### `pipeToSync(source[, ...transforms], writer[, options])`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `source` {Iterable} The sync data source.
@@ -668,7 +676,9 @@ The `writer` must have the `*Sync` methods (`writeSync`, `writevSync`,
 ### `pull(source[, ...transforms][, options])`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `source` {AsyncIterable|Iterable} The data source.
@@ -739,7 +749,9 @@ ac.abort(); // Pipeline throws AbortError on next iteration
 ### `pullSync(source[, ...transforms])`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `source` {Iterable} The sync data source.
@@ -753,7 +765,9 @@ Synchronous version of [`pull()`][]. All transforms must be synchronous.
 ### `push([...transforms][, options])`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `...transforms` {Function|Object} Optional transforms applied to the
@@ -817,7 +831,9 @@ The writer returned by `push()` conforms to the \[Writer interface]\[].
 ### `duplex([options])`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `options` {Object}
@@ -895,7 +911,9 @@ run().catch(console.error);
 ### `array(source[, options])`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `source` {AsyncIterable\<Uint8Array\[]>|Iterable\<Uint8Array\[]>}
@@ -910,7 +928,9 @@ Collect all chunks as an array of `Uint8Array` values (without concatenating).
 ### `arrayBuffer(source[, options])`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `source` {AsyncIterable\<Uint8Array\[]>|Iterable\<Uint8Array\[]>}
@@ -925,7 +945,9 @@ Collect all bytes into an `ArrayBuffer`.
 ### `arrayBufferSync(source[, options])`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `source` {Iterable\<Uint8Array\[]>}
@@ -939,7 +961,9 @@ Synchronous version of [`arrayBuffer()`][].
 ### `arraySync(source[, options])`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `source` {Iterable\<Uint8Array\[]>}
@@ -953,7 +977,9 @@ Synchronous version of [`array()`][].
 ### `bytes(source[, options])`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `source` {AsyncIterable\<Uint8Array\[]>|Iterable\<Uint8Array\[]>}
@@ -986,7 +1012,9 @@ run().catch(console.error);
 ### `bytesSync(source[, options])`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `source` {Iterable\<Uint8Array\[]>}
@@ -1000,7 +1028,9 @@ Synchronous version of [`bytes()`][].
 ### `text(source[, options])`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `source` {AsyncIterable\<Uint8Array\[]>|Iterable\<Uint8Array\[]>}
@@ -1032,7 +1062,9 @@ run().catch(console.error);
 ### `textSync(source[, options])`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `source` {Iterable\<Uint8Array\[]>}
@@ -1049,7 +1081,9 @@ Synchronous version of [`text()`][].
 ### `ondrain(drainable)`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `drainable` {Object} An object implementing the drainable protocol.
@@ -1104,7 +1138,9 @@ run().catch(console.error);
 ### `merge(...sources[, options])`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `...sources` {AsyncIterable\<Uint8Array\[]>|Iterable\<Uint8Array\[]>} Two or more iterables.
@@ -1137,7 +1173,9 @@ run().catch(console.error);
 ### `tap(callback)`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `callback` {Function} `(chunks) => void` Called with each batch.
@@ -1176,7 +1214,9 @@ chunks by the tapping callback; but return values are ignored.
 ### `tapSync(callback)`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `callback` {Function}
@@ -1189,7 +1229,9 @@ Synchronous version of [`tap()`][].
 ### `broadcast([options])`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `options` {Object}
@@ -1290,7 +1332,9 @@ Alias for `broadcast.cancel()`.
 ### `Broadcast.from(input[, options])`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `input` {AsyncIterable|Iterable|Broadcastable}
@@ -1303,7 +1347,9 @@ automatically and pushed to all subscribers.
 ### `share(source[, options])`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `source` {AsyncIterable} The source to share.
@@ -1384,7 +1430,9 @@ Alias for `share.cancel()`.
 ### `Share.from(input[, options])`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `input` {AsyncIterable|Shareable}
@@ -1396,7 +1444,9 @@ Create a {Share} from an existing source.
 ### `shareSync(source[, options])`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `source` {Iterable} The sync source to share.
@@ -1411,7 +1461,9 @@ Synchronous version of [`share()`][].
 ### `SyncShare.fromSync(input[, options])`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 * `input` {Iterable|SyncShareable}

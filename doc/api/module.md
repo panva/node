@@ -181,10 +181,15 @@ added:
 deprecated:
  - v25.9.0
  - v24.15.0
+ - v26.0.0
 changes:
-  - version: REPLACEME
+  - version: v26.0.0
     pr-url: https://github.com/nodejs/node/pull/62401
     description: Runtime deprecation (DEP0205).
+  - version: v25.9.0
+    pr-url: https://github.com/nodejs/node/pull/62395
+    description: Documentation-only deprecation (DEP0205). Use
+                 `module.registerHooks()` instead.
   - version:
     - v23.6.1
     - v22.13.1
@@ -257,7 +262,7 @@ added:
   - v23.2.0
   - v22.13.0
 changes:
-  - version: REPLACEME
+  - version: v26.0.0
     pr-url: https://github.com/nodejs/node/pull/61803
     description: Removed `transform` and `sourceMap` options.
 -->

@@ -739,7 +739,9 @@ This feature is not available in [`Worker`][] threads.
 ## `process.addUncaughtExceptionCaptureCallback(fn)`
 
 <!-- YAML
-added: v25.9.0
+added:
+ - v25.9.0
+ - v26.0.0
 -->
 
 > Stability: 1 - Experimental
@@ -2056,7 +2058,7 @@ added:
  - v23.0.0
  - v22.10.0
 changes:
-  - version: REPLACEME
+  - version: v26.0.0
     pr-url: https://github.com/nodejs/node/pull/61803
     description: Removed `transform` value.
   - version:
@@ -4077,7 +4079,9 @@ This implies calling `module.setSourceMapsSupport()` with an option
 <!-- YAML
 added: v9.3.0
 changes:
-  - version: v25.9.0
+  - version:
+     - v25.9.0
+     - v26.0.0
     pr-url: https://github.com/nodejs/node/pull/61227
     description: Use `process.addUncaughtExceptionCaptureCallback()` to
       register multiple callbacks.
