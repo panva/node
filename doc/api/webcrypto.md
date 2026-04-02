@@ -2,6 +2,9 @@
 
 <!-- YAML
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/XXXXX
+    description: SLH-DSA algorithms are now supported.
   - version: v25.9.0
     pr-url: https://github.com/nodejs/node/pull/62183
     description: TurboSHAKE and KangarooTwelve algorithms
@@ -137,11 +140,24 @@ Algorithms:
 * `'SHA3-256'`
 * `'SHA3-384'`
 * `'SHA3-512'`
+* `'SLH-DSA-SHA2-128f'`[^openssl35]
+* `'SLH-DSA-SHA2-128s'`[^openssl35]
+* `'SLH-DSA-SHA2-192f'`[^openssl35]
+* `'SLH-DSA-SHA2-192s'`[^openssl35]
+* `'SLH-DSA-SHA2-256f'`[^openssl35]
+* `'SLH-DSA-SHA2-256s'`[^openssl35]
+* `'SLH-DSA-SHAKE-128f'`[^openssl35]
+* `'SLH-DSA-SHAKE-128s'`[^openssl35]
+* `'SLH-DSA-SHAKE-192f'`[^openssl35]
+* `'SLH-DSA-SHAKE-192s'`[^openssl35]
+* `'SLH-DSA-SHAKE-256f'`[^openssl35]
+* `'SLH-DSA-SHAKE-256s'`[^openssl35]
 * `'TurboSHAKE128'`
 * `'TurboSHAKE256'`
 
 Key Formats:
 
+* `'raw-private'`
 * `'raw-public'`
 * `'raw-secret'`
 * `'raw-seed'`
@@ -518,37 +534,49 @@ implementation and the APIs supported for each:
 
 ### Key Management APIs
 
-| Algorithm                            | [`subtle.generateKey()`][] | [`subtle.exportKey()`][] | [`subtle.importKey()`][] | [`subtle.getPublicKey()`][] |
-| ------------------------------------ | -------------------------- | ------------------------ | ------------------------ | --------------------------- |
-| `'AES-CBC'`                          | ✔                          | ✔                        | ✔                        |                             |
-| `'AES-CTR'`                          | ✔                          | ✔                        | ✔                        |                             |
-| `'AES-GCM'`                          | ✔                          | ✔                        | ✔                        |                             |
-| `'AES-KW'`                           | ✔                          | ✔                        | ✔                        |                             |
-| `'AES-OCB'`                          | ✔                          | ✔                        | ✔                        |                             |
-| `'Argon2d'`                          |                            |                          | ✔                        |                             |
-| `'Argon2i'`                          |                            |                          | ✔                        |                             |
-| `'Argon2id'`                         |                            |                          | ✔                        |                             |
-| `'ChaCha20-Poly1305'`[^modern-algos] | ✔                          | ✔                        | ✔                        |                             |
-| `'ECDH'`                             | ✔                          | ✔                        | ✔                        | ✔                           |
-| `'ECDSA'`                            | ✔                          | ✔                        | ✔                        | ✔                           |
-| `'Ed25519'`                          | ✔                          | ✔                        | ✔                        | ✔                           |
-| `'Ed448'`[^secure-curves]            | ✔                          | ✔                        | ✔                        | ✔                           |
-| `'HKDF'`                             |                            |                          | ✔                        |                             |
-| `'HMAC'`                             | ✔                          | ✔                        | ✔                        |                             |
-| `'KMAC128'`[^modern-algos]           | ✔                          | ✔                        | ✔                        |                             |
-| `'KMAC256'`[^modern-algos]           | ✔                          | ✔                        | ✔                        |                             |
-| `'ML-DSA-44'`[^modern-algos]         | ✔                          | ✔                        | ✔                        | ✔                           |
-| `'ML-DSA-65'`[^modern-algos]         | ✔                          | ✔                        | ✔                        | ✔                           |
-| `'ML-DSA-87'`[^modern-algos]         | ✔                          | ✔                        | ✔                        | ✔                           |
-| `'ML-KEM-512'`[^modern-algos]        | ✔                          | ✔                        | ✔                        | ✔                           |
-| `'ML-KEM-768'`[^modern-algos]        | ✔                          | ✔                        | ✔                        | ✔                           |
-| `'ML-KEM-1024'`[^modern-algos]       | ✔                          | ✔                        | ✔                        | ✔                           |
-| `'PBKDF2'`                           |                            |                          | ✔                        |                             |
-| `'RSA-OAEP'`                         | ✔                          | ✔                        | ✔                        | ✔                           |
-| `'RSA-PSS'`                          | ✔                          | ✔                        | ✔                        | ✔                           |
-| `'RSASSA-PKCS1-v1_5'`                | ✔                          | ✔                        | ✔                        | ✔                           |
-| `'X25519'`                           | ✔                          | ✔                        | ✔                        | ✔                           |
-| `'X448'`[^secure-curves]             | ✔                          | ✔                        | ✔                        | ✔                           |
+| Algorithm                             | [`subtle.generateKey()`][] | [`subtle.exportKey()`][] | [`subtle.importKey()`][] | [`subtle.getPublicKey()`][] |
+| ------------------------------------- | -------------------------- | ------------------------ | ------------------------ | --------------------------- |
+| `'AES-CBC'`                           | ✔                          | ✔                        | ✔                        |                             |
+| `'AES-CTR'`                           | ✔                          | ✔                        | ✔                        |                             |
+| `'AES-GCM'`                           | ✔                          | ✔                        | ✔                        |                             |
+| `'AES-KW'`                            | ✔                          | ✔                        | ✔                        |                             |
+| `'AES-OCB'`                           | ✔                          | ✔                        | ✔                        |                             |
+| `'Argon2d'`                           |                            |                          | ✔                        |                             |
+| `'Argon2i'`                           |                            |                          | ✔                        |                             |
+| `'Argon2id'`                          |                            |                          | ✔                        |                             |
+| `'ChaCha20-Poly1305'`[^modern-algos]  | ✔                          | ✔                        | ✔                        |                             |
+| `'ECDH'`                              | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'ECDSA'`                             | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'Ed25519'`                           | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'Ed448'`[^secure-curves]             | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'HKDF'`                              |                            |                          | ✔                        |                             |
+| `'HMAC'`                              | ✔                          | ✔                        | ✔                        |                             |
+| `'KMAC128'`[^modern-algos]            | ✔                          | ✔                        | ✔                        |                             |
+| `'KMAC256'`[^modern-algos]            | ✔                          | ✔                        | ✔                        |                             |
+| `'ML-DSA-44'`[^modern-algos]          | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'ML-DSA-65'`[^modern-algos]          | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'ML-DSA-87'`[^modern-algos]          | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'ML-KEM-512'`[^modern-algos]         | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'ML-KEM-768'`[^modern-algos]         | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'ML-KEM-1024'`[^modern-algos]        | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'PBKDF2'`                            |                            |                          | ✔                        |                             |
+| `'RSA-OAEP'`                          | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'RSA-PSS'`                           | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'RSASSA-PKCS1-v1_5'`                 | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'SLH-DSA-SHA2-128f'`[^modern-algos]  | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'SLH-DSA-SHA2-128s'`[^modern-algos]  | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'SLH-DSA-SHA2-192f'`[^modern-algos]  | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'SLH-DSA-SHA2-192s'`[^modern-algos]  | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'SLH-DSA-SHA2-256f'`[^modern-algos]  | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'SLH-DSA-SHA2-256s'`[^modern-algos]  | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'SLH-DSA-SHAKE-128f'`[^modern-algos] | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'SLH-DSA-SHAKE-128s'`[^modern-algos] | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'SLH-DSA-SHAKE-192f'`[^modern-algos] | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'SLH-DSA-SHAKE-192s'`[^modern-algos] | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'SLH-DSA-SHAKE-256f'`[^modern-algos] | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'SLH-DSA-SHAKE-256s'`[^modern-algos] | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'X25519'`                            | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'X448'`[^secure-curves]              | ✔                          | ✔                        | ✔                        | ✔                           |
 
 ### Crypto Operation APIs
 
@@ -562,50 +590,62 @@ implementation and the APIs supported for each:
   [`subtle.encapsulateKey()`][] / [`subtle.decapsulateKey()`][]
 * **Digest**: [`subtle.digest()`][]
 
-| Algorithm                            | Encryption | Signatures and MAC | Key or Bits Derivation | Key Wrapping | Key Encapsulation | Digest |
-| ------------------------------------ | ---------- | ------------------ | ---------------------- | ------------ | ----------------- | ------ |
-| `'AES-CBC'`                          | ✔          |                    |                        | ✔            |                   |        |
-| `'AES-CTR'`                          | ✔          |                    |                        | ✔            |                   |        |
-| `'AES-GCM'`                          | ✔          |                    |                        | ✔            |                   |        |
-| `'AES-KW'`                           |            |                    |                        | ✔            |                   |        |
-| `'AES-OCB'`                          | ✔          |                    |                        | ✔            |                   |        |
-| `'Argon2d'`                          |            |                    | ✔                      |              |                   |        |
-| `'Argon2i'`                          |            |                    | ✔                      |              |                   |        |
-| `'Argon2id'`                         |            |                    | ✔                      |              |                   |        |
-| `'ChaCha20-Poly1305'`[^modern-algos] | ✔          |                    |                        | ✔            |                   |        |
-| `'cSHAKE128'`[^modern-algos]         |            |                    |                        |              |                   | ✔      |
-| `'cSHAKE256'`[^modern-algos]         |            |                    |                        |              |                   | ✔      |
-| `'ECDH'`                             |            |                    | ✔                      |              |                   |        |
-| `'ECDSA'`                            |            | ✔                  |                        |              |                   |        |
-| `'Ed25519'`                          |            | ✔                  |                        |              |                   |        |
-| `'Ed448'`[^secure-curves]            |            | ✔                  |                        |              |                   |        |
-| `'HKDF'`                             |            |                    | ✔                      |              |                   |        |
-| `'HMAC'`                             |            | ✔                  |                        |              |                   |        |
-| `'KMAC128'`[^modern-algos]           |            | ✔                  |                        |              |                   |        |
-| `'KMAC256'`[^modern-algos]           |            | ✔                  |                        |              |                   |        |
-| `'KT128'`[^modern-algos]             |            |                    |                        |              |                   | ✔      |
-| `'KT256'`[^modern-algos]             |            |                    |                        |              |                   | ✔      |
-| `'ML-DSA-44'`[^modern-algos]         |            | ✔                  |                        |              |                   |        |
-| `'ML-DSA-65'`[^modern-algos]         |            | ✔                  |                        |              |                   |        |
-| `'ML-DSA-87'`[^modern-algos]         |            | ✔                  |                        |              |                   |        |
-| `'ML-KEM-512'`[^modern-algos]        |            |                    |                        |              | ✔                 |        |
-| `'ML-KEM-768'`[^modern-algos]        |            |                    |                        |              | ✔                 |        |
-| `'ML-KEM-1024'`[^modern-algos]       |            |                    |                        |              | ✔                 |        |
-| `'PBKDF2'`                           |            |                    | ✔                      |              |                   |        |
-| `'RSA-OAEP'`                         | ✔          |                    |                        | ✔            |                   |        |
-| `'RSA-PSS'`                          |            | ✔                  |                        |              |                   |        |
-| `'RSASSA-PKCS1-v1_5'`                |            | ✔                  |                        |              |                   |        |
-| `'SHA-1'`                            |            |                    |                        |              |                   | ✔      |
-| `'SHA-256'`                          |            |                    |                        |              |                   | ✔      |
-| `'SHA-384'`                          |            |                    |                        |              |                   | ✔      |
-| `'SHA-512'`                          |            |                    |                        |              |                   | ✔      |
-| `'SHA3-256'`[^modern-algos]          |            |                    |                        |              |                   | ✔      |
-| `'SHA3-384'`[^modern-algos]          |            |                    |                        |              |                   | ✔      |
-| `'SHA3-512'`[^modern-algos]          |            |                    |                        |              |                   | ✔      |
-| `'TurboSHAKE128'`[^modern-algos]     |            |                    |                        |              |                   | ✔      |
-| `'TurboSHAKE256'`[^modern-algos]     |            |                    |                        |              |                   | ✔      |
-| `'X25519'`                           |            |                    | ✔                      |              |                   |        |
-| `'X448'`[^secure-curves]             |            |                    | ✔                      |              |                   |        |
+| Algorithm                             | Encryption | Signatures and MAC | Key or Bits Derivation | Key Wrapping | Key Encapsulation | Digest |
+| ------------------------------------- | ---------- | ------------------ | ---------------------- | ------------ | ----------------- | ------ |
+| `'AES-CBC'`                           | ✔          |                    |                        | ✔            |                   |        |
+| `'AES-CTR'`                           | ✔          |                    |                        | ✔            |                   |        |
+| `'AES-GCM'`                           | ✔          |                    |                        | ✔            |                   |        |
+| `'AES-KW'`                            |            |                    |                        | ✔            |                   |        |
+| `'AES-OCB'`                           | ✔          |                    |                        | ✔            |                   |        |
+| `'Argon2d'`                           |            |                    | ✔                      |              |                   |        |
+| `'Argon2i'`                           |            |                    | ✔                      |              |                   |        |
+| `'Argon2id'`                          |            |                    | ✔                      |              |                   |        |
+| `'ChaCha20-Poly1305'`[^modern-algos]  | ✔          |                    |                        | ✔            |                   |        |
+| `'cSHAKE128'`[^modern-algos]          |            |                    |                        |              |                   | ✔      |
+| `'cSHAKE256'`[^modern-algos]          |            |                    |                        |              |                   | ✔      |
+| `'ECDH'`                              |            |                    | ✔                      |              |                   |        |
+| `'ECDSA'`                             |            | ✔                  |                        |              |                   |        |
+| `'Ed25519'`                           |            | ✔                  |                        |              |                   |        |
+| `'Ed448'`[^secure-curves]             |            | ✔                  |                        |              |                   |        |
+| `'HKDF'`                              |            |                    | ✔                      |              |                   |        |
+| `'HMAC'`                              |            | ✔                  |                        |              |                   |        |
+| `'KMAC128'`[^modern-algos]            |            | ✔                  |                        |              |                   |        |
+| `'KMAC256'`[^modern-algos]            |            | ✔                  |                        |              |                   |        |
+| `'KT128'`[^modern-algos]              |            |                    |                        |              |                   | ✔      |
+| `'KT256'`[^modern-algos]              |            |                    |                        |              |                   | ✔      |
+| `'ML-DSA-44'`[^modern-algos]          |            | ✔                  |                        |              |                   |        |
+| `'ML-DSA-65'`[^modern-algos]          |            | ✔                  |                        |              |                   |        |
+| `'ML-DSA-87'`[^modern-algos]          |            | ✔                  |                        |              |                   |        |
+| `'ML-KEM-512'`[^modern-algos]         |            |                    |                        |              | ✔                 |        |
+| `'ML-KEM-768'`[^modern-algos]         |            |                    |                        |              | ✔                 |        |
+| `'ML-KEM-1024'`[^modern-algos]        |            |                    |                        |              | ✔                 |        |
+| `'PBKDF2'`                            |            |                    | ✔                      |              |                   |        |
+| `'RSA-OAEP'`                          | ✔          |                    |                        | ✔            |                   |        |
+| `'RSA-PSS'`                           |            | ✔                  |                        |              |                   |        |
+| `'RSASSA-PKCS1-v1_5'`                 |            | ✔                  |                        |              |                   |        |
+| `'SHA-1'`                             |            |                    |                        |              |                   | ✔      |
+| `'SHA-256'`                           |            |                    |                        |              |                   | ✔      |
+| `'SHA-384'`                           |            |                    |                        |              |                   | ✔      |
+| `'SHA-512'`                           |            |                    |                        |              |                   | ✔      |
+| `'SHA3-256'`[^modern-algos]           |            |                    |                        |              |                   | ✔      |
+| `'SHA3-384'`[^modern-algos]           |            |                    |                        |              |                   | ✔      |
+| `'SHA3-512'`[^modern-algos]           |            |                    |                        |              |                   | ✔      |
+| `'SLH-DSA-SHA2-128f'`[^modern-algos]  |            | ✔                  |                        |              |                   |        |
+| `'SLH-DSA-SHA2-128s'`[^modern-algos]  |            | ✔                  |                        |              |                   |        |
+| `'SLH-DSA-SHA2-192f'`[^modern-algos]  |            | ✔                  |                        |              |                   |        |
+| `'SLH-DSA-SHA2-192s'`[^modern-algos]  |            | ✔                  |                        |              |                   |        |
+| `'SLH-DSA-SHA2-256f'`[^modern-algos]  |            | ✔                  |                        |              |                   |        |
+| `'SLH-DSA-SHA2-256s'`[^modern-algos]  |            | ✔                  |                        |              |                   |        |
+| `'SLH-DSA-SHAKE-128f'`[^modern-algos] |            | ✔                  |                        |              |                   |        |
+| `'SLH-DSA-SHAKE-128s'`[^modern-algos] |            | ✔                  |                        |              |                   |        |
+| `'SLH-DSA-SHAKE-192f'`[^modern-algos] |            | ✔                  |                        |              |                   |        |
+| `'SLH-DSA-SHAKE-192s'`[^modern-algos] |            | ✔                  |                        |              |                   |        |
+| `'SLH-DSA-SHAKE-256f'`[^modern-algos] |            | ✔                  |                        |              |                   |        |
+| `'SLH-DSA-SHAKE-256s'`[^modern-algos] |            | ✔                  |                        |              |                   |        |
+| `'TurboSHAKE128'`[^modern-algos]      |            |                    |                        |              |                   | ✔      |
+| `'TurboSHAKE256'`[^modern-algos]      |            |                    |                        |              |                   | ✔      |
+| `'X25519'`                            |            |                    | ✔                      |              |                   |        |
+| `'X448'`[^secure-curves]              |            |                    | ✔                      |              |                   |        |
 
 ## Class: `Crypto`
 
@@ -740,37 +780,49 @@ Valid key usages depend on the key algorithm (identified by
 * **Key Encapsulation**: [`subtle.encapsulateBits()`][] / [`subtle.decapsulateBits()`][] /
   [`subtle.encapsulateKey()`][] / [`subtle.decapsulateKey()`][]
 
-| Supported Key Algorithm              | Encryption | Signatures and MAC | Key or Bits Derivation | Key Wrapping | Key Encapsulation |
-| ------------------------------------ | ---------- | ------------------ | ---------------------- | ------------ | ----------------- |
-| `'AES-CBC'`                          | ✔          |                    |                        | ✔            |                   |
-| `'AES-CTR'`                          | ✔          |                    |                        | ✔            |                   |
-| `'AES-GCM'`                          | ✔          |                    |                        | ✔            |                   |
-| `'AES-KW'`                           |            |                    |                        | ✔            |                   |
-| `'AES-OCB'`                          | ✔          |                    |                        | ✔            |                   |
-| `'Argon2d'`                          |            |                    | ✔                      |              |                   |
-| `'Argon2i'`                          |            |                    | ✔                      |              |                   |
-| `'Argon2id'`                         |            |                    | ✔                      |              |                   |
-| `'ChaCha20-Poly1305'`[^modern-algos] | ✔          |                    |                        | ✔            |                   |
-| `'ECDH'`                             |            |                    | ✔                      |              |                   |
-| `'ECDSA'`                            |            | ✔                  |                        |              |                   |
-| `'Ed25519'`                          |            | ✔                  |                        |              |                   |
-| `'Ed448'`[^secure-curves]            |            | ✔                  |                        |              |                   |
-| `'HDKF'`                             |            |                    | ✔                      |              |                   |
-| `'HMAC'`                             |            | ✔                  |                        |              |                   |
-| `'KMAC128'`[^modern-algos]           |            | ✔                  |                        |              |                   |
-| `'KMAC256'`[^modern-algos]           |            | ✔                  |                        |              |                   |
-| `'ML-DSA-44'`[^modern-algos]         |            | ✔                  |                        |              |                   |
-| `'ML-DSA-65'`[^modern-algos]         |            | ✔                  |                        |              |                   |
-| `'ML-DSA-87'`[^modern-algos]         |            | ✔                  |                        |              |                   |
-| `'ML-KEM-512'`[^modern-algos]        |            |                    |                        |              | ✔                 |
-| `'ML-KEM-768'`[^modern-algos]        |            |                    |                        |              | ✔                 |
-| `'ML-KEM-1024'`[^modern-algos]       |            |                    |                        |              | ✔                 |
-| `'PBKDF2'`                           |            |                    | ✔                      |              |                   |
-| `'RSA-OAEP'`                         | ✔          |                    |                        | ✔            |                   |
-| `'RSA-PSS'`                          |            | ✔                  |                        |              |                   |
-| `'RSASSA-PKCS1-v1_5'`                |            | ✔                  |                        |              |                   |
-| `'X25519'`                           |            |                    | ✔                      |              |                   |
-| `'X448'`[^secure-curves]             |            |                    | ✔                      |              |                   |
+| Supported Key Algorithm               | Encryption | Signatures and MAC | Key or Bits Derivation | Key Wrapping | Key Encapsulation |
+| ------------------------------------- | ---------- | ------------------ | ---------------------- | ------------ | ----------------- |
+| `'AES-CBC'`                           | ✔          |                    |                        | ✔            |                   |
+| `'AES-CTR'`                           | ✔          |                    |                        | ✔            |                   |
+| `'AES-GCM'`                           | ✔          |                    |                        | ✔            |                   |
+| `'AES-KW'`                            |            |                    |                        | ✔            |                   |
+| `'AES-OCB'`                           | ✔          |                    |                        | ✔            |                   |
+| `'Argon2d'`                           |            |                    | ✔                      |              |                   |
+| `'Argon2i'`                           |            |                    | ✔                      |              |                   |
+| `'Argon2id'`                          |            |                    | ✔                      |              |                   |
+| `'ChaCha20-Poly1305'`[^modern-algos]  | ✔          |                    |                        | ✔            |                   |
+| `'ECDH'`                              |            |                    | ✔                      |              |                   |
+| `'ECDSA'`                             |            | ✔                  |                        |              |                   |
+| `'Ed25519'`                           |            | ✔                  |                        |              |                   |
+| `'Ed448'`[^secure-curves]             |            | ✔                  |                        |              |                   |
+| `'HDKF'`                              |            |                    | ✔                      |              |                   |
+| `'HMAC'`                              |            | ✔                  |                        |              |                   |
+| `'KMAC128'`[^modern-algos]            |            | ✔                  |                        |              |                   |
+| `'KMAC256'`[^modern-algos]            |            | ✔                  |                        |              |                   |
+| `'ML-DSA-44'`[^modern-algos]          |            | ✔                  |                        |              |                   |
+| `'ML-DSA-65'`[^modern-algos]          |            | ✔                  |                        |              |                   |
+| `'ML-DSA-87'`[^modern-algos]          |            | ✔                  |                        |              |                   |
+| `'ML-KEM-512'`[^modern-algos]         |            |                    |                        |              | ✔                 |
+| `'ML-KEM-768'`[^modern-algos]         |            |                    |                        |              | ✔                 |
+| `'ML-KEM-1024'`[^modern-algos]        |            |                    |                        |              | ✔                 |
+| `'PBKDF2'`                            |            |                    | ✔                      |              |                   |
+| `'RSA-OAEP'`                          | ✔          |                    |                        | ✔            |                   |
+| `'RSA-PSS'`                           |            | ✔                  |                        |              |                   |
+| `'RSASSA-PKCS1-v1_5'`                 |            | ✔                  |                        |              |                   |
+| `'SLH-DSA-SHA2-128f'`[^modern-algos]  |            | ✔                  |                        |              |                   |
+| `'SLH-DSA-SHA2-128s'`[^modern-algos]  |            | ✔                  |                        |              |                   |
+| `'SLH-DSA-SHA2-192f'`[^modern-algos]  |            | ✔                  |                        |              |                   |
+| `'SLH-DSA-SHA2-192s'`[^modern-algos]  |            | ✔                  |                        |              |                   |
+| `'SLH-DSA-SHA2-256f'`[^modern-algos]  |            | ✔                  |                        |              |                   |
+| `'SLH-DSA-SHA2-256s'`[^modern-algos]  |            | ✔                  |                        |              |                   |
+| `'SLH-DSA-SHAKE-128f'`[^modern-algos] |            | ✔                  |                        |              |                   |
+| `'SLH-DSA-SHAKE-128s'`[^modern-algos] |            | ✔                  |                        |              |                   |
+| `'SLH-DSA-SHAKE-192f'`[^modern-algos] |            | ✔                  |                        |              |                   |
+| `'SLH-DSA-SHAKE-192s'`[^modern-algos] |            | ✔                  |                        |              |                   |
+| `'SLH-DSA-SHAKE-256f'`[^modern-algos] |            | ✔                  |                        |              |                   |
+| `'SLH-DSA-SHAKE-256s'`[^modern-algos] |            | ✔                  |                        |              |                   |
+| `'X25519'`                            |            |                    | ✔                      |              |                   |
+| `'X448'`[^secure-curves]              |            |                    | ✔                      |              |                   |
 
 ## Class: `CryptoKeyPair`
 
@@ -1132,6 +1184,9 @@ The algorithms currently supported include:
 <!-- YAML
 added: v15.0.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/XXXXX
+    description: SLH-DSA algorithms are now supported.
   - version: v24.8.0
     pr-url: https://github.com/nodejs/node/pull/59647
     description: KMAC algorithms are now supported.
@@ -1156,7 +1211,7 @@ changes:
 -->
 
 * `format` {string} Must be one of `'raw'`, `'pkcs8'`, `'spki'`, `'jwk'`, `'raw-secret'`[^modern-algos],
-  `'raw-public'`[^modern-algos], or `'raw-seed'`[^modern-algos].
+  `'raw-public'`[^modern-algos], `'raw-private'`[^modern-algos], or `'raw-seed'`[^modern-algos].
 * `key` {CryptoKey}
 * Returns: {Promise} Fulfills with an {ArrayBuffer|Object} upon success.
 
@@ -1172,30 +1227,44 @@ When `format` is `'jwk'` and the export is successful, the returned promise
 will be resolved with a JavaScript object conforming to the [JSON Web Key][]
 specification.
 
-| Supported Key Algorithm              | `'spki'` | `'pkcs8'` | `'jwk'` | `'raw'` | `'raw-secret'` | `'raw-public'` | `'raw-seed'` |
-| ------------------------------------ | -------- | --------- | ------- | ------- | -------------- | -------------- | ------------ |
-| `'AES-CBC'`                          |          |           | ✔       | ✔       | ✔              |                |              |
-| `'AES-CTR'`                          |          |           | ✔       | ✔       | ✔              |                |              |
-| `'AES-GCM'`                          |          |           | ✔       | ✔       | ✔              |                |              |
-| `'AES-KW'`                           |          |           | ✔       | ✔       | ✔              |                |              |
-| `'AES-OCB'`[^modern-algos]           |          |           | ✔       |         | ✔              |                |              |
-| `'ChaCha20-Poly1305'`[^modern-algos] |          |           | ✔       |         | ✔              |                |              |
-| `'ECDH'`                             | ✔        | ✔         | ✔       | ✔       |                | ✔              |              |
-| `'ECDSA'`                            | ✔        | ✔         | ✔       | ✔       |                | ✔              |              |
-| `'Ed25519'`                          | ✔        | ✔         | ✔       | ✔       |                | ✔              |              |
-| `'Ed448'`[^secure-curves]            | ✔        | ✔         | ✔       | ✔       |                | ✔              |              |
-| `'HMAC'`                             |          |           | ✔       | ✔       | ✔              |                |              |
-| `'KMAC128'`[^modern-algos]           |          |           | ✔       |         | ✔              |                |              |
-| `'KMAC256'`[^modern-algos]           |          |           | ✔       |         | ✔              |                |              |
-| `'ML-DSA-44'`[^modern-algos]         | ✔        | ✔         | ✔       |         |                | ✔              | ✔            |
-| `'ML-DSA-65'`[^modern-algos]         | ✔        | ✔         | ✔       |         |                | ✔              | ✔            |
-| `'ML-DSA-87'`[^modern-algos]         | ✔        | ✔         | ✔       |         |                | ✔              | ✔            |
-| `'ML-KEM-512'`[^modern-algos]        | ✔        | ✔         |         |         |                | ✔              | ✔            |
-| `'ML-KEM-768'`[^modern-algos]        | ✔        | ✔         |         |         |                | ✔              | ✔            |
-| `'ML-KEM-1024'`[^modern-algos]       | ✔        | ✔         |         |         |                | ✔              | ✔            |
-| `'RSA-OAEP'`                         | ✔        | ✔         | ✔       |         |                |                |              |
-| `'RSA-PSS'`                          | ✔        | ✔         | ✔       |         |                |                |              |
-| `'RSASSA-PKCS1-v1_5'`                | ✔        | ✔         | ✔       |         |                |                |              |
+| Supported Key Algorithm               | `'spki'` | `'pkcs8'` | `'jwk'` | `'raw'` | `'raw-secret'` | `'raw-public'` | `'raw-private'` | `'raw-seed'` |
+| ------------------------------------- | -------- | --------- | ------- | ------- | -------------- | -------------- | --------------- | ------------ |
+| `'AES-CBC'`                           |          |           | ✔       | ✔       | ✔              |                |                 |              |
+| `'AES-CTR'`                           |          |           | ✔       | ✔       | ✔              |                |                 |              |
+| `'AES-GCM'`                           |          |           | ✔       | ✔       | ✔              |                |                 |              |
+| `'AES-KW'`                            |          |           | ✔       | ✔       | ✔              |                |                 |              |
+| `'AES-OCB'`[^modern-algos]            |          |           | ✔       |         | ✔              |                |                 |              |
+| `'ChaCha20-Poly1305'`[^modern-algos]  |          |           | ✔       |         | ✔              |                |                 |              |
+| `'ECDH'`                              | ✔        | ✔         | ✔       | ✔       |                | ✔              |                 |              |
+| `'ECDSA'`                             | ✔        | ✔         | ✔       | ✔       |                | ✔              |                 |              |
+| `'Ed25519'`                           | ✔        | ✔         | ✔       | ✔       |                | ✔              |                 |              |
+| `'Ed448'`[^secure-curves]             | ✔        | ✔         | ✔       | ✔       |                | ✔              |                 |              |
+| `'HMAC'`                              |          |           | ✔       | ✔       | ✔              |                |                 |              |
+| `'KMAC128'`[^modern-algos]            |          |           | ✔       |         | ✔              |                |                 |              |
+| `'KMAC256'`[^modern-algos]            |          |           | ✔       |         | ✔              |                |                 |              |
+| `'ML-DSA-44'`[^modern-algos]          | ✔        | ✔         | ✔       |         |                | ✔              |                 | ✔            |
+| `'ML-DSA-65'`[^modern-algos]          | ✔        | ✔         | ✔       |         |                | ✔              |                 | ✔            |
+| `'ML-DSA-87'`[^modern-algos]          | ✔        | ✔         | ✔       |         |                | ✔              |                 | ✔            |
+| `'ML-KEM-512'`[^modern-algos]         | ✔        | ✔         |         |         |                | ✔              |                 | ✔            |
+| `'ML-KEM-768'`[^modern-algos]         | ✔        | ✔         |         |         |                | ✔              |                 | ✔            |
+| `'ML-KEM-1024'`[^modern-algos]        | ✔        | ✔         |         |         |                | ✔              |                 | ✔            |
+| `'RSA-OAEP'`                          | ✔        | ✔         | ✔       |         |                |                |                 |              |
+| `'RSA-PSS'`                           | ✔        | ✔         | ✔       |         |                |                |                 |              |
+| `'RSASSA-PKCS1-v1_5'`                 | ✔        | ✔         | ✔       |         |                |                |                 |              |
+| `'SLH-DSA-SHA2-128f'`[^modern-algos]  | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHA2-128s'`[^modern-algos]  | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHA2-192f'`[^modern-algos]  | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHA2-192s'`[^modern-algos]  | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHA2-256f'`[^modern-algos]  | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHA2-256s'`[^modern-algos]  | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHAKE-128f'`[^modern-algos] | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHAKE-128s'`[^modern-algos] | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHAKE-192f'`[^modern-algos] | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHAKE-192s'`[^modern-algos] | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHAKE-256f'`[^modern-algos] | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHAKE-256s'`[^modern-algos] | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'X25519'`                            | ✔        | ✔         | ✔       | ✔       |                | ✔              |                 |              |
+| `'X448'`[^secure-curves]              | ✔        | ✔         | ✔       | ✔       |                | ✔              |                 |              |
 
 ### `subtle.getPublicKey(key, keyUsages)`
 
@@ -1216,6 +1285,9 @@ Derives the public key from a given private key.
 <!-- YAML
 added: v15.0.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/XXXXX
+    description: SLH-DSA algorithms are now supported.
   - version: v24.8.0
     pr-url: https://github.com/nodejs/node/pull/59647
     description: KMAC algorithms are now supported.
@@ -1260,6 +1332,18 @@ include:
 * `'RSA-OAEP'`
 * `'RSA-PSS'`
 * `'RSASSA-PKCS1-v1_5'`
+* `'SLH-DSA-SHA2-128f'`[^modern-algos]
+* `'SLH-DSA-SHA2-128s'`[^modern-algos]
+* `'SLH-DSA-SHA2-192f'`[^modern-algos]
+* `'SLH-DSA-SHA2-192s'`[^modern-algos]
+* `'SLH-DSA-SHA2-256f'`[^modern-algos]
+* `'SLH-DSA-SHA2-256s'`[^modern-algos]
+* `'SLH-DSA-SHAKE-128f'`[^modern-algos]
+* `'SLH-DSA-SHAKE-128s'`[^modern-algos]
+* `'SLH-DSA-SHAKE-192f'`[^modern-algos]
+* `'SLH-DSA-SHAKE-192s'`[^modern-algos]
+* `'SLH-DSA-SHAKE-256f'`[^modern-algos]
+* `'SLH-DSA-SHAKE-256s'`[^modern-algos]
 * `'X25519'`
 * `'X448'`[^secure-curves]
 
@@ -1280,6 +1364,9 @@ The {CryptoKey} (secret key) generating algorithms supported include:
 <!-- YAML
 added: v15.0.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/XXXXX
+    description: SLH-DSA algorithms are now supported.
   - version: v25.9.0
     pr-url: https://github.com/nodejs/node/pull/62218
     description: Importing ML-DSA and ML-KEM PKCS#8 keys
@@ -1308,7 +1395,7 @@ changes:
 -->
 
 * `format` {string} Must be one of `'raw'`, `'pkcs8'`, `'spki'`, `'jwk'`, `'raw-secret'`[^modern-algos],
-  `'raw-public'`[^modern-algos], or `'raw-seed'`[^modern-algos].
+  `'raw-public'`[^modern-algos], `'raw-private'`[^modern-algos], or `'raw-seed'`[^modern-algos].
 * `keyData` {ArrayBuffer|TypedArray|DataView|Buffer|Object}
 
 <!--lint disable maximum-line-length remark-lint-->
@@ -1331,43 +1418,58 @@ If importing KDF algorithm keys, `extractable` must be `false`.
 
 The algorithms currently supported include:
 
-| Supported Key Algorithm              | `'spki'` | `'pkcs8'` | `'jwk'` | `'raw'` | `'raw-secret'` | `'raw-public'` | `'raw-seed'` |
-| ------------------------------------ | -------- | --------- | ------- | ------- | -------------- | -------------- | ------------ |
-| `'AES-CBC'`                          |          |           | ✔       | ✔       | ✔              |                |              |
-| `'AES-CTR'`                          |          |           | ✔       | ✔       | ✔              |                |              |
-| `'AES-GCM'`                          |          |           | ✔       | ✔       | ✔              |                |              |
-| `'AES-KW'`                           |          |           | ✔       | ✔       | ✔              |                |              |
-| `'AES-OCB'`[^modern-algos]           |          |           | ✔       |         | ✔              |                |              |
-| `'Argon2d'`[^modern-algos]           |          |           |         |         | ✔              |                |              |
-| `'Argon2i'`[^modern-algos]           |          |           |         |         | ✔              |                |              |
-| `'Argon2id'`[^modern-algos]          |          |           |         |         | ✔              |                |              |
-| `'ChaCha20-Poly1305'`[^modern-algos] |          |           | ✔       |         | ✔              |                |              |
-| `'ECDH'`                             | ✔        | ✔         | ✔       | ✔       |                | ✔              |              |
-| `'ECDSA'`                            | ✔        | ✔         | ✔       | ✔       |                | ✔              |              |
-| `'Ed25519'`                          | ✔        | ✔         | ✔       | ✔       |                | ✔              |              |
-| `'Ed448'`[^secure-curves]            | ✔        | ✔         | ✔       | ✔       |                | ✔              |              |
-| `'HDKF'`                             |          |           |         | ✔       | ✔              |                |              |
-| `'HMAC'`                             |          |           | ✔       | ✔       | ✔              |                |              |
-| `'KMAC128'`[^modern-algos]           |          |           | ✔       |         | ✔              |                |              |
-| `'KMAC256'`[^modern-algos]           |          |           | ✔       |         | ✔              |                |              |
-| `'ML-DSA-44'`[^modern-algos]         | ✔        | ✔         | ✔       |         |                | ✔              | ✔            |
-| `'ML-DSA-65'`[^modern-algos]         | ✔        | ✔         | ✔       |         |                | ✔              | ✔            |
-| `'ML-DSA-87'`[^modern-algos]         | ✔        | ✔         | ✔       |         |                | ✔              | ✔            |
-| `'ML-KEM-512'`[^modern-algos]        | ✔        | ✔         |         |         |                | ✔              | ✔            |
-| `'ML-KEM-768'`[^modern-algos]        | ✔        | ✔         |         |         |                | ✔              | ✔            |
-| `'ML-KEM-1024'`[^modern-algos]       | ✔        | ✔         |         |         |                | ✔              | ✔            |
-| `'PBKDF2'`                           |          |           |         | ✔       | ✔              |                |              |
-| `'RSA-OAEP'`                         | ✔        | ✔         | ✔       |         |                |                |              |
-| `'RSA-PSS'`                          | ✔        | ✔         | ✔       |         |                |                |              |
-| `'RSASSA-PKCS1-v1_5'`                | ✔        | ✔         | ✔       |         |                |                |              |
-| `'X25519'`                           | ✔        | ✔         | ✔       | ✔       |                | ✔              |              |
-| `'X448'`[^secure-curves]             | ✔        | ✔         | ✔       | ✔       |                | ✔              |              |
+| Supported Key Algorithm               | `'spki'` | `'pkcs8'` | `'jwk'` | `'raw'` | `'raw-secret'` | `'raw-public'` | `'raw-private'` | `'raw-seed'` |
+| ------------------------------------- | -------- | --------- | ------- | ------- | -------------- | -------------- | --------------- | ------------ |
+| `'AES-CBC'`                           |          |           | ✔       | ✔       | ✔              |                |                 |              |
+| `'AES-CTR'`                           |          |           | ✔       | ✔       | ✔              |                |                 |              |
+| `'AES-GCM'`                           |          |           | ✔       | ✔       | ✔              |                |                 |              |
+| `'AES-KW'`                            |          |           | ✔       | ✔       | ✔              |                |                 |              |
+| `'AES-OCB'`[^modern-algos]            |          |           | ✔       |         | ✔              |                |                 |              |
+| `'Argon2d'`[^modern-algos]            |          |           |         |         | ✔              |                |                 |              |
+| `'Argon2i'`[^modern-algos]            |          |           |         |         | ✔              |                |                 |              |
+| `'Argon2id'`[^modern-algos]           |          |           |         |         | ✔              |                |                 |              |
+| `'ChaCha20-Poly1305'`[^modern-algos]  |          |           | ✔       |         | ✔              |                |                 |              |
+| `'ECDH'`                              | ✔        | ✔         | ✔       | ✔       |                | ✔              |                 |              |
+| `'ECDSA'`                             | ✔        | ✔         | ✔       | ✔       |                | ✔              |                 |              |
+| `'Ed25519'`                           | ✔        | ✔         | ✔       | ✔       |                | ✔              |                 |              |
+| `'Ed448'`[^secure-curves]             | ✔        | ✔         | ✔       | ✔       |                | ✔              |                 |              |
+| `'HDKF'`                              |          |           |         | ✔       | ✔              |                |                 |              |
+| `'HMAC'`                              |          |           | ✔       | ✔       | ✔              |                |                 |              |
+| `'KMAC128'`[^modern-algos]            |          |           | ✔       |         | ✔              |                |                 |              |
+| `'KMAC256'`[^modern-algos]            |          |           | ✔       |         | ✔              |                |                 |              |
+| `'ML-DSA-44'`[^modern-algos]          | ✔        | ✔         | ✔       |         |                | ✔              |                 | ✔            |
+| `'ML-DSA-65'`[^modern-algos]          | ✔        | ✔         | ✔       |         |                | ✔              |                 | ✔            |
+| `'ML-DSA-87'`[^modern-algos]          | ✔        | ✔         | ✔       |         |                | ✔              |                 | ✔            |
+| `'ML-KEM-512'`[^modern-algos]         | ✔        | ✔         |         |         |                | ✔              |                 | ✔            |
+| `'ML-KEM-768'`[^modern-algos]         | ✔        | ✔         |         |         |                | ✔              |                 | ✔            |
+| `'ML-KEM-1024'`[^modern-algos]        | ✔        | ✔         |         |         |                | ✔              |                 | ✔            |
+| `'PBKDF2'`                            |          |           |         | ✔       | ✔              |                |                 |              |
+| `'RSA-OAEP'`                          | ✔        | ✔         | ✔       |         |                |                |                 |              |
+| `'RSA-PSS'`                           | ✔        | ✔         | ✔       |         |                |                |                 |              |
+| `'RSASSA-PKCS1-v1_5'`                 | ✔        | ✔         | ✔       |         |                |                |                 |              |
+| `'SLH-DSA-SHA2-128f'`[^modern-algos]  | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHA2-128s'`[^modern-algos]  | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHA2-192f'`[^modern-algos]  | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHA2-192s'`[^modern-algos]  | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHA2-256f'`[^modern-algos]  | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHA2-256s'`[^modern-algos]  | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHAKE-128f'`[^modern-algos] | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHAKE-128s'`[^modern-algos] | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHAKE-192f'`[^modern-algos] | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHAKE-192s'`[^modern-algos] | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHAKE-256f'`[^modern-algos] | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'SLH-DSA-SHAKE-256s'`[^modern-algos] | ✔        | ✔         | ✔       |         |                | ✔              | ✔               |              |
+| `'X25519'`                            | ✔        | ✔         | ✔       | ✔       |                | ✔              |                 |              |
+| `'X448'`[^secure-curves]              | ✔        | ✔         | ✔       | ✔       |                | ✔              |                 |              |
 
 ### `subtle.sign(algorithm, key, data)`
 
 <!-- YAML
 added: v15.0.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/XXXXX
+    description: SLH-DSA algorithms are now supported.
   - version: v24.8.0
     pr-url: https://github.com/nodejs/node/pull/59647
     description: KMAC algorithms are now supported.
@@ -1408,6 +1510,18 @@ The algorithms currently supported include:
 * `'ML-DSA-87'`[^modern-algos]
 * `'RSA-PSS'`
 * `'RSASSA-PKCS1-v1_5'`
+* `'SLH-DSA-SHA2-128f'`[^modern-algos]
+* `'SLH-DSA-SHA2-128s'`[^modern-algos]
+* `'SLH-DSA-SHA2-192f'`[^modern-algos]
+* `'SLH-DSA-SHA2-192s'`[^modern-algos]
+* `'SLH-DSA-SHA2-256f'`[^modern-algos]
+* `'SLH-DSA-SHA2-256s'`[^modern-algos]
+* `'SLH-DSA-SHAKE-128f'`[^modern-algos]
+* `'SLH-DSA-SHAKE-128s'`[^modern-algos]
+* `'SLH-DSA-SHAKE-192f'`[^modern-algos]
+* `'SLH-DSA-SHAKE-192s'`[^modern-algos]
+* `'SLH-DSA-SHAKE-256f'`[^modern-algos]
+* `'SLH-DSA-SHAKE-256s'`[^modern-algos]
 
 ### `subtle.unwrapKey(format, wrappedKey, unwrappingKey, unwrapAlgo, unwrappedKeyAlgo, extractable, keyUsages)`
 
@@ -1423,7 +1537,7 @@ changes:
 -->
 
 * `format` {string} Must be one of `'raw'`, `'pkcs8'`, `'spki'`, `'jwk'`, `'raw-secret'`[^modern-algos],
-  `'raw-public'`[^modern-algos], or `'raw-seed'`[^modern-algos].
+  `'raw-public'`[^modern-algos], `'raw-private'`[^modern-algos], or `'raw-seed'`[^modern-algos].
 * `wrappedKey` {ArrayBuffer|TypedArray|DataView|Buffer}
 * `unwrappingKey` {CryptoKey}
 
@@ -1477,10 +1591,22 @@ The unwrapped key algorithms supported include:
 * `'ML-DSA-87'`[^modern-algos]
 * `'ML-KEM-512'`[^modern-algos]
 * `'ML-KEM-768'`[^modern-algos]
-* `'ML-KEM-1024'`[^modern-algos]v
+* `'ML-KEM-1024'`[^modern-algos]
 * `'RSA-OAEP'`
 * `'RSA-PSS'`
 * `'RSASSA-PKCS1-v1_5'`
+* `'SLH-DSA-SHA2-128f'`[^modern-algos]
+* `'SLH-DSA-SHA2-128s'`[^modern-algos]
+* `'SLH-DSA-SHA2-192f'`[^modern-algos]
+* `'SLH-DSA-SHA2-192s'`[^modern-algos]
+* `'SLH-DSA-SHA2-256f'`[^modern-algos]
+* `'SLH-DSA-SHA2-256s'`[^modern-algos]
+* `'SLH-DSA-SHAKE-128f'`[^modern-algos]
+* `'SLH-DSA-SHAKE-128s'`[^modern-algos]
+* `'SLH-DSA-SHAKE-192f'`[^modern-algos]
+* `'SLH-DSA-SHAKE-192s'`[^modern-algos]
+* `'SLH-DSA-SHAKE-256f'`[^modern-algos]
+* `'SLH-DSA-SHAKE-256s'`[^modern-algos]
 * `'X25519'`
 * `'X448'`[^secure-curves]
 
@@ -1489,6 +1615,9 @@ The unwrapped key algorithms supported include:
 <!-- YAML
 added: v15.0.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/XXXXX
+    description: SLH-DSA algorithms are now supported.
   - version: v24.8.0
     pr-url: https://github.com/nodejs/node/pull/59647
     description: KMAC algorithms are now supported.
@@ -1530,6 +1659,18 @@ The algorithms currently supported include:
 * `'ML-DSA-87'`[^modern-algos]
 * `'RSA-PSS'`
 * `'RSASSA-PKCS1-v1_5'`
+* `'SLH-DSA-SHA2-128f'`[^modern-algos]
+* `'SLH-DSA-SHA2-128s'`[^modern-algos]
+* `'SLH-DSA-SHA2-192f'`[^modern-algos]
+* `'SLH-DSA-SHA2-192s'`[^modern-algos]
+* `'SLH-DSA-SHA2-256f'`[^modern-algos]
+* `'SLH-DSA-SHA2-256s'`[^modern-algos]
+* `'SLH-DSA-SHAKE-128f'`[^modern-algos]
+* `'SLH-DSA-SHAKE-128s'`[^modern-algos]
+* `'SLH-DSA-SHAKE-192f'`[^modern-algos]
+* `'SLH-DSA-SHAKE-192s'`[^modern-algos]
+* `'SLH-DSA-SHAKE-256f'`[^modern-algos]
+* `'SLH-DSA-SHAKE-256s'`[^modern-algos]
 
 ### `subtle.wrapKey(format, key, wrappingKey, wrapAlgo)`
 
@@ -1547,7 +1688,7 @@ changes:
 <!--lint disable maximum-line-length remark-lint-->
 
 * `format` {string} Must be one of `'raw'`, `'pkcs8'`, `'spki'`, `'jwk'`, `'raw-secret'`[^modern-algos],
-  `'raw-public'`[^modern-algos], or `'raw-seed'`[^modern-algos].
+  `'raw-public'`[^modern-algos], `'raw-private'`[^modern-algos], or `'raw-seed'`[^modern-algos].
 * `key` {CryptoKey}
 * `wrappingKey` {CryptoKey}
 * `wrapAlgo` {string|Algorithm|RsaOaepParams|AesCtrParams|AesCbcParams|AeadParams}

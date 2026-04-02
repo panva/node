@@ -110,6 +110,9 @@ all: \
   ml_dsa_87_private_seed_only.pem \
   ml_dsa_87_private_priv_only.pem \
   ml_dsa_87_public.pem \
+  ml-dsa-44.json \
+  ml-dsa-65.json \
+  ml-dsa-87.json \
   ml_kem_512_private.pem \
   ml_kem_512_private_seed_only.pem \
   ml_kem_512_private_priv_only.pem \
@@ -146,6 +149,18 @@ all: \
   slh_dsa_shake_256s_public.pem \
   slh_dsa_shake_256f_private.pem \
   slh_dsa_shake_256f_public.pem \
+  slh-dsa-sha2-128s.json \
+  slh-dsa-sha2-128f.json \
+  slh-dsa-sha2-192s.json \
+  slh-dsa-sha2-192f.json \
+  slh-dsa-sha2-256s.json \
+  slh-dsa-sha2-256f.json \
+  slh-dsa-shake-128s.json \
+  slh-dsa-shake-128f.json \
+  slh-dsa-shake-192s.json \
+  slh-dsa-shake-192f.json \
+  slh-dsa-shake-256s.json \
+  slh-dsa-shake-256f.json \
 
 #
 # Create Certificate Authority: ca1
@@ -974,6 +989,13 @@ slh_dsa_shake_256f_private.pem:
 
 slh_dsa_shake_256f_public.pem: slh_dsa_shake_256f_private.pem
 	openssl pkey -in slh_dsa_shake_256f_private.pem -pubout -out slh_dsa_shake_256f_public.pem
+
+define GEN_PQC_JWK
+$(1): $(subst -,_,$(basename $(1)))_private.pem
+	node -e 'const k = require("crypto").createPrivateKey(require("fs").readFileSync("$(subst -,_,$(basename $(1)))_private.pem")); require("fs").writeFileSync("$(1)", JSON.stringify(k.export({format:"jwk"}), null, 2) + "\n")'
+endef
+
+$(foreach v,ml-dsa-44.json ml-dsa-65.json ml-dsa-87.json slh-dsa-sha2-128s.json slh-dsa-sha2-128f.json slh-dsa-sha2-192s.json slh-dsa-sha2-192f.json slh-dsa-sha2-256s.json slh-dsa-sha2-256f.json slh-dsa-shake-128s.json slh-dsa-shake-128f.json slh-dsa-shake-192s.json slh-dsa-shake-192f.json slh-dsa-shake-256s.json slh-dsa-shake-256f.json,$(eval $(call GEN_PQC_JWK,$(v))))
 
 ml_dsa_44_private.pem:
 	openssl genpkey -algorithm ml-dsa-44 -out ml_dsa_44_private.pem

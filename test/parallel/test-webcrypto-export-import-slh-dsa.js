@@ -12,7 +12,7 @@ if (!hasOpenSSL(3, 5))
 
 const assert = require('assert');
 const { subtle } = globalThis.crypto;
-const { createPrivateKey } = require('crypto');
+const { createPrivateKey, createPublicKey } = require('crypto');
 
 const fixtures = require('../common/fixtures');
 
@@ -27,34 +27,29 @@ function toDer(pem) {
 
 const keyData = {};
 
-for (const name of ['ML-DSA-44', 'ML-DSA-65', 'ML-DSA-87']) {
+const allNames = [
+  'SLH-DSA-SHA2-128s', 'SLH-DSA-SHA2-128f',
+  'SLH-DSA-SHA2-192s', 'SLH-DSA-SHA2-192f',
+  'SLH-DSA-SHA2-256s', 'SLH-DSA-SHA2-256f',
+  'SLH-DSA-SHAKE-128s', 'SLH-DSA-SHAKE-128f',
+  'SLH-DSA-SHAKE-192s', 'SLH-DSA-SHAKE-192f',
+  'SLH-DSA-SHAKE-256s', 'SLH-DSA-SHAKE-256f',
+];
+
+for (const name of allNames) {
   const lcName = name.toLowerCase();
   keyData[name] = {
-    pkcs8_seed_only: toDer(fixtures.readKey(getKeyFileName(lcName, 'private_seed_only'), 'ascii')),
     pkcs8: toDer(fixtures.readKey(getKeyFileName(lcName, 'private'), 'ascii')),
-    pkcs8_priv_only: toDer(fixtures.readKey(getKeyFileName(lcName, 'private_priv_only'), 'ascii')),
     spki: toDer(fixtures.readKey(getKeyFileName(lcName, 'public'), 'ascii')),
     jwk: JSON.parse(fixtures.readKey(`${lcName}.json`)),
   };
 }
 
-const testVectors = [
-  {
-    name: 'ML-DSA-44',
-    privateUsages: ['sign'],
-    publicUsages: ['verify']
-  },
-  {
-    name: 'ML-DSA-65',
-    privateUsages: ['sign'],
-    publicUsages: ['verify']
-  },
-  {
-    name: 'ML-DSA-87',
-    privateUsages: ['sign'],
-    publicUsages: ['verify']
-  },
-];
+const testVectors = allNames.map((name) => ({
+  name,
+  privateUsages: ['sign'],
+  publicUsages: ['verify'],
+}));
 
 async function testImportSpki({ name, publicUsages }, extractable) {
   const key = await subtle.importKey(
@@ -71,7 +66,6 @@ async function testImportSpki({ name, publicUsages }, extractable) {
   assert.strictEqual(key.usages, key.usages);
 
   if (extractable) {
-    // Test the roundtrip
     const spki = await subtle.exportKey('spki', key);
     assert.strictEqual(
       Buffer.from(spki).toString('hex'),
@@ -106,15 +100,12 @@ async function testImportPkcs8({ name, privateUsages }, extractable) {
   assert.strictEqual(key.extractable, extractable);
   assert.deepStrictEqual(key.usages, privateUsages);
   assert.deepStrictEqual(key.algorithm.name, name);
-  assert.strictEqual(key.algorithm, key.algorithm);
-  assert.strictEqual(key.usages, key.usages);
 
   if (extractable) {
-    // Test the roundtrip
     const pkcs8 = await subtle.exportKey('pkcs8', key);
     assert.strictEqual(
       Buffer.from(pkcs8).toString('hex'),
-      keyData[name].pkcs8_seed_only.toString('hex'));
+      keyData[name].pkcs8.toString('hex'));
   } else {
     await assert.rejects(
       subtle.exportKey('pkcs8', key), {
@@ -133,85 +124,16 @@ async function testImportPkcs8({ name, privateUsages }, extractable) {
     { name: 'SyntaxError', message: 'Usages cannot be empty when importing a private key.' });
 }
 
-async function testImportPkcs8SeedOnly({ name, privateUsages }, extractable) {
-  const key = await subtle.importKey(
-    'pkcs8',
-    keyData[name].pkcs8_seed_only,
-    { name },
-    extractable,
-    privateUsages);
-  assert.strictEqual(key.type, 'private');
-  assert.strictEqual(key.extractable, extractable);
-  assert.deepStrictEqual(key.usages, privateUsages);
-  assert.deepStrictEqual(key.algorithm.name, name);
-  assert.strictEqual(key.algorithm, key.algorithm);
-  assert.strictEqual(key.usages, key.usages);
-
-  if (extractable) {
-    // Test the roundtrip
-    const pkcs8 = await subtle.exportKey('pkcs8', key);
-    assert.strictEqual(
-      Buffer.from(pkcs8).toString('hex'),
-      keyData[name].pkcs8_seed_only.toString('hex'));
-  } else {
-    await assert.rejects(
-      subtle.exportKey('pkcs8', key), {
-        message: /key is not extractable/,
-        name: 'InvalidAccessError',
-      });
-  }
-
-  await assert.rejects(
-    subtle.importKey(
-      'pkcs8',
-      keyData[name].pkcs8_seed_only,
-      { name },
-      extractable,
-      [/* empty usages */]),
-    { name: 'SyntaxError', message: 'Usages cannot be empty when importing a private key.' });
-}
-
-async function testImportPkcs8PrivOnly({ name, privateUsages }, extractable) {
-  await assert.rejects(
-    subtle.importKey(
-      'pkcs8',
-      keyData[name].pkcs8_priv_only,
-      { name },
-      extractable,
-      privateUsages),
-    {
-      name: 'NotSupportedError',
-      message: 'Importing an ML-DSA PKCS#8 key without a seed is not supported',
-    });
-}
-
-async function testImportPkcs8MismatchedSeed({ name, privateUsages }, extractable) {
-  const modified = Buffer.from(keyData[name].pkcs8);
-  modified[30] ^= 0xff;
-  await assert.rejects(
-    subtle.importKey(
-      'pkcs8',
-      modified,
-      { name },
-      extractable,
-      privateUsages),
-    {
-      name: 'DataError',
-    });
-}
-
 async function testImportJwk({ name, publicUsages, privateUsages }, extractable) {
-
   const jwk = keyData[name].jwk;
 
-  const tests = [
+  const [
+    publicKey,
+    privateKey,
+  ] = await Promise.all([
     subtle.importKey(
       'jwk',
-      {
-        kty: jwk.kty,
-        alg: jwk.alg,
-        pub: jwk.pub,
-      },
+      { kty: jwk.kty, alg: jwk.alg, pub: jwk.pub },
       { name },
       extractable, publicUsages),
     subtle.importKey(
@@ -220,12 +142,7 @@ async function testImportJwk({ name, publicUsages, privateUsages }, extractable)
       { name },
       extractable,
       privateUsages),
-  ];
-
-  const [
-    publicKey,
-    privateKey,
-  ] = await Promise.all(tests);
+  ]);
 
   assert.strictEqual(publicKey.type, 'public');
   assert.strictEqual(privateKey.type, 'private');
@@ -235,17 +152,9 @@ async function testImportJwk({ name, publicUsages, privateUsages }, extractable)
   assert.deepStrictEqual(privateKey.usages, privateUsages);
   assert.strictEqual(publicKey.algorithm.name, name);
   assert.strictEqual(privateKey.algorithm.name, name);
-  assert.strictEqual(privateKey.algorithm, privateKey.algorithm);
-  assert.strictEqual(privateKey.usages, privateKey.usages);
-  assert.strictEqual(publicKey.algorithm, publicKey.algorithm);
-  assert.strictEqual(publicKey.usages, publicKey.usages);
 
   if (extractable) {
-    // Test the round trip
-    const [
-      pubJwk,
-      pvtJwk,
-    ] = await Promise.all([
+    const [pubJwk, pvtJwk] = await Promise.all([
       subtle.exportKey('jwk', publicKey),
       subtle.exportKey('jwk', privateKey),
     ]);
@@ -297,7 +206,7 @@ async function testImportJwk({ name, publicUsages, privateUsages }, extractable)
   await assert.rejects(
     subtle.importKey(
       'jwk',
-      { ...jwk, priv: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' }, // Public vs private mismatch
+      { ...jwk, priv: 'A'.repeat(86) },
       { name },
       extractable,
       privateUsages),
@@ -318,7 +227,7 @@ async function testImportJwk({ name, publicUsages, privateUsages }, extractable)
       { ...jwk },
       { name },
       extractable,
-      publicUsages), // Invalid for a private key
+      publicUsages),
     { message: /Unsupported key usage/ });
 
   await assert.rejects(
@@ -336,10 +245,11 @@ async function testImportJwk({ name, publicUsages, privateUsages }, extractable)
       { ...jwk, priv: undefined },
       { name },
       extractable,
-      privateUsages), // Invalid for a public key
+      privateUsages),
     { message: /Unsupported key usage/ });
 
-  for (const alg of [undefined, name === 'ML-DSA-44' ? 'ML-DSA-87' : 'ML-DSA-44']) {
+  const wrongAlg = name === 'SLH-DSA-SHA2-128f' ? 'SLH-DSA-SHAKE-128f' : 'SLH-DSA-SHA2-128f';
+  for (const alg of [undefined, wrongAlg]) {
     await assert.rejects(
       subtle.importKey(
         'jwk',
@@ -391,8 +301,6 @@ async function testImportRawPublic({ name, publicUsages }, extractable) {
   assert.strictEqual(publicKey.type, 'public');
   assert.deepStrictEqual(publicKey.usages, publicUsages);
   assert.strictEqual(publicKey.algorithm.name, name);
-  assert.strictEqual(publicKey.algorithm, publicKey.algorithm);
-  assert.strictEqual(publicKey.usages, publicKey.usages);
   assert.strictEqual(publicKey.extractable, extractable);
 
   if (extractable) {
@@ -401,7 +309,7 @@ async function testImportRawPublic({ name, publicUsages }, extractable) {
 
     await assert.rejects(subtle.exportKey('raw', publicKey), {
       name: 'NotSupportedError',
-      message: `Unable to export ${publicKey.algorithm.name} public key using raw format`,
+      message: `Unable to export ${name} public key using raw format`,
     });
   }
 
@@ -413,41 +321,42 @@ async function testImportRawPublic({ name, publicUsages }, extractable) {
       extractable, publicUsages),
     { message: 'Invalid keyData' });
 
+  // Pick a wrong algorithm with a different key size to ensure rejection.
+  const wrongName = name.includes('128') ?
+    name.replace('128', '256') : name.replace(/192|256/, '128');
   await assert.rejects(
     subtle.importKey(
       'raw-public',
       pub,
-      { name: name === 'ML-DSA-44' ? 'ML-DSA-65' : 'ML-DSA-44' },
+      { name: wrongName },
       extractable, publicUsages),
     { message: 'Invalid keyData' });
 }
 
-async function testImportRawSeed({ name, privateUsages }, extractable) {
+async function testImportRawPrivate({ name, privateUsages }, extractable) {
   const jwk = keyData[name].jwk;
-  const seed = Buffer.from(jwk.priv, 'base64url');
+  const priv = Buffer.from(jwk.priv, 'base64url');
 
   const privateKey = await subtle.importKey(
-    'raw-seed',
-    seed,
+    'raw-private',
+    priv,
     { name },
     extractable, privateUsages);
 
   assert.strictEqual(privateKey.type, 'private');
   assert.deepStrictEqual(privateKey.usages, privateUsages);
   assert.strictEqual(privateKey.algorithm.name, name);
-  assert.strictEqual(privateKey.algorithm, privateKey.algorithm);
-  assert.strictEqual(privateKey.usages, privateKey.usages);
   assert.strictEqual(privateKey.extractable, extractable);
 
   if (extractable) {
-    const value = await subtle.exportKey('raw-seed', privateKey);
-    assert.deepStrictEqual(Buffer.from(value), seed);
+    const value = await subtle.exportKey('raw-private', privateKey);
+    assert.deepStrictEqual(Buffer.from(value), priv);
   }
 
   await assert.rejects(
     subtle.importKey(
-      'raw-seed',
-      seed.subarray(0, 30),
+      'raw-private',
+      priv.subarray(0, 30),
       { name },
       extractable,
       privateUsages),
@@ -460,34 +369,97 @@ async function testImportRawSeed({ name, privateUsages }, extractable) {
     for (const extractable of [true, false]) {
       tests.push(testImportSpki(vector, extractable));
       tests.push(testImportPkcs8(vector, extractable));
-      tests.push(testImportPkcs8SeedOnly(vector, extractable));
-      tests.push(testImportPkcs8PrivOnly(vector, extractable));
-      tests.push(testImportPkcs8MismatchedSeed(vector, extractable));
       tests.push(testImportJwk(vector, extractable));
-      tests.push(testImportRawSeed(vector, extractable));
       tests.push(testImportRawPublic(vector, extractable));
+      tests.push(testImportRawPrivate(vector, extractable));
     }
   }
   await Promise.all(tests);
 })().then(common.mustCall());
 
 (async function() {
-  const alg = 'ML-DSA-44';
+  const alg = 'SLH-DSA-SHA2-128f';
   const pub = Buffer.from(keyData[alg].jwk.pub, 'base64url');
   await assert.rejects(subtle.importKey('raw', pub, alg, false, []), {
     name: 'NotSupportedError',
-    message: 'Unable to import ML-DSA-44 using raw format',
+    message: `Unable to import ${alg} using raw format`,
   });
 })().then(common.mustCall());
 
 (async function() {
+  // Test generateKey and roundtrip export/import
+  for (const { name } of testVectors) {
+    const { publicKey, privateKey } = await subtle.generateKey(
+      { name },
+      true,
+      ['sign', 'verify']);
+
+    assert.strictEqual(publicKey.type, 'public');
+    assert.strictEqual(privateKey.type, 'private');
+    assert.strictEqual(publicKey.algorithm.name, name);
+    assert.strictEqual(privateKey.algorithm.name, name);
+    assert.strictEqual(publicKey.extractable, true);
+    assert.strictEqual(privateKey.extractable, true);
+
+    // Roundtrip via all formats
+    const [spki, pkcs8, pubJwk, pvtJwk, rawPub, rawPriv] = await Promise.all([
+      subtle.exportKey('spki', publicKey),
+      subtle.exportKey('pkcs8', privateKey),
+      subtle.exportKey('jwk', publicKey),
+      subtle.exportKey('jwk', privateKey),
+      subtle.exportKey('raw-public', publicKey),
+      subtle.exportKey('raw-private', privateKey),
+    ]);
+
+    // Reimport and verify
+    const [reimportedPub, reimportedPriv] = await Promise.all([
+      subtle.importKey('spki', spki, { name }, true, ['verify']),
+      subtle.importKey('pkcs8', pkcs8, { name }, true, ['sign']),
+    ]);
+
+    const reExportedSpki = await subtle.exportKey('spki', reimportedPub);
+    const reExportedPkcs8 = await subtle.exportKey('pkcs8', reimportedPriv);
+    assert.deepStrictEqual(Buffer.from(reExportedSpki), Buffer.from(spki));
+    assert.deepStrictEqual(Buffer.from(reExportedPkcs8), Buffer.from(pkcs8));
+
+    // Reimport raw and verify roundtrip
+    const reimportedRawPub = await subtle.importKey(
+      'raw-public', rawPub, { name }, true, ['verify']);
+    const reimportedRawPriv = await subtle.importKey(
+      'raw-private', rawPriv, { name }, true, ['sign']);
+
+    const reExportedRawPub = await subtle.exportKey('raw-public', reimportedRawPub);
+    const reExportedRawPriv = await subtle.exportKey('raw-private', reimportedRawPriv);
+    assert.deepStrictEqual(Buffer.from(reExportedRawPub), Buffer.from(rawPub));
+    assert.deepStrictEqual(Buffer.from(reExportedRawPriv), Buffer.from(rawPriv));
+
+    // Verify JWK data
+    assert.strictEqual(pubJwk.kty, 'AKP');
+    assert.strictEqual(pvtJwk.kty, 'AKP');
+    assert.strictEqual(pubJwk.alg, name);
+    assert.strictEqual(pvtJwk.alg, name);
+    assert.ok(pubJwk.pub);
+    assert.ok(pvtJwk.pub);
+    assert.ok(pvtJwk.priv);
+    assert.strictEqual(pubJwk.priv, undefined);
+  }
+})().then(common.mustCall());
+
+// toCryptoKey
+(async function() {
   for (const { name, privateUsages } of testVectors) {
-    const pem = fixtures.readKey(getKeyFileName(name.toLowerCase(), 'private_priv_only'), 'ascii');
+    const lcName = name.toLowerCase();
+    const pem = fixtures.readKey(getKeyFileName(lcName, 'private'), 'ascii');
     const keyObject = createPrivateKey(pem);
     const key = keyObject.toCryptoKey({ name }, true, privateUsages);
-    await assert.rejects(subtle.exportKey('pkcs8', key), (err) => {
-      assert.strictEqual(err.name, 'OperationError');
-      return true;
-    });
+    assert.strictEqual(key.type, 'private');
+    assert.strictEqual(key.algorithm.name, name);
+    assert.deepStrictEqual(key.usages, privateUsages);
+
+    const pubPem = fixtures.readKey(getKeyFileName(lcName, 'public'), 'ascii');
+    const pubKeyObject = createPublicKey(pubPem);
+    const pubKey = pubKeyObject.toCryptoKey({ name }, true, ['verify']);
+    assert.strictEqual(pubKey.type, 'public');
+    assert.strictEqual(pubKey.algorithm.name, name);
   }
 })().then(common.mustCall());

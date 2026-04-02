@@ -7,6 +7,7 @@
 #include "crypto/crypto_ec.h"
 #include "crypto/crypto_ml_dsa.h"
 #include "crypto/crypto_rsa.h"
+#include "crypto/crypto_slh_dsa.h"
 #include "crypto/crypto_util.h"
 #include "env-inl.h"
 #include "memory_tracker-inl.h"
@@ -201,6 +202,30 @@ bool ExportJWKAsymmetricKey(Environment* env,
       // Fall through
     case EVP_PKEY_ML_DSA_87:
       return ExportJwkMlDsaKey(env, key, target);
+    case EVP_PKEY_SLH_DSA_SHA2_128F:
+      // Fall through
+    case EVP_PKEY_SLH_DSA_SHA2_128S:
+      // Fall through
+    case EVP_PKEY_SLH_DSA_SHA2_192F:
+      // Fall through
+    case EVP_PKEY_SLH_DSA_SHA2_192S:
+      // Fall through
+    case EVP_PKEY_SLH_DSA_SHA2_256F:
+      // Fall through
+    case EVP_PKEY_SLH_DSA_SHA2_256S:
+      // Fall through
+    case EVP_PKEY_SLH_DSA_SHAKE_128F:
+      // Fall through
+    case EVP_PKEY_SLH_DSA_SHAKE_128S:
+      // Fall through
+    case EVP_PKEY_SLH_DSA_SHAKE_192F:
+      // Fall through
+    case EVP_PKEY_SLH_DSA_SHAKE_192S:
+      // Fall through
+    case EVP_PKEY_SLH_DSA_SHAKE_256F:
+      // Fall through
+    case EVP_PKEY_SLH_DSA_SHAKE_256S:
+      return ExportJwkSlhDsaKey(env, key, target);
 #endif
   }
   THROW_ERR_CRYPTO_JWK_UNSUPPORTED_KEY_TYPE(env);
@@ -723,7 +748,16 @@ static KeyObjectData ImportJWKFromArgs(Environment* env, Local<Object> jwk) {
     return ImportJWKEdKey(env, jwk);
   } else if (*kty_string == std::string_view("AKP")) {
 #if OPENSSL_WITH_PQC
-    return ImportJWKAkpKey(env, jwk);
+    // Try each AKP handler in turn. Each returns empty without throwing
+    // when the alg doesn't match its family, allowing the next to try.
+    auto data = ImportJWKAkpKey(env, jwk);
+    if (!data && !env->isolate()->HasPendingException()) {
+      data = ImportJWKSlhDsaKey(env, jwk);
+    }
+    if (!data && !env->isolate()->HasPendingException()) {
+      THROW_ERR_CRYPTO_INVALID_JWK(env, "Unsupported JWK AKP \"alg\"");
+    }
+    return data;
 #else
     THROW_ERR_INVALID_ARG_VALUE(env, "Unsupported key type");
     return {};

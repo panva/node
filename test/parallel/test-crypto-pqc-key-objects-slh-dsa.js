@@ -28,6 +28,25 @@ for (const asymmetricKeyType of [
     private: fixtures.readKey(getKeyFileName(asymmetricKeyType, 'private'), 'ascii'),
   };
 
+  function assertJwk(jwk) {
+    assert.strictEqual(jwk.kty, 'AKP');
+    // SLH-DSA algorithm names keep the last character (f/s) lowercase.
+    const expectedAlg = asymmetricKeyType.slice(0, -1).toUpperCase() +
+                        asymmetricKeyType.slice(-1);
+    assert.strictEqual(jwk.alg, expectedAlg);
+    assert.ok(jwk.pub);
+  }
+
+  function assertPublicJwk(jwk) {
+    assertJwk(jwk);
+    assert.ok(!jwk.priv);
+  }
+
+  function assertPrivateJwk(jwk) {
+    assertJwk(jwk);
+    assert.ok(jwk.priv);
+  }
+
   function assertKey(key) {
     assert.deepStrictEqual(key.asymmetricKeyDetails, {});
     assert.strictEqual(key.asymmetricKeyType, asymmetricKeyType);
@@ -40,8 +59,9 @@ for (const asymmetricKeyType of [
     assert.strictEqual(key.type, 'public');
     assert.strictEqual(key.export({ format: 'pem', type: 'spki' }), keys.public);
     key.export({ format: 'der', type: 'spki' });
-    assert.throws(() => key.export({ format: 'jwk' }),
-                  { code: 'ERR_CRYPTO_JWK_UNSUPPORTED_KEY_TYPE', message: 'Unsupported JWK Key Type.' });
+    const jwk = key.export({ format: 'jwk' });
+    assertPublicJwk(jwk);
+    assert.strictEqual(key.equals(createPublicKey({ format: 'jwk', key: jwk })), true);
 
     // Raw format round-trip
     const rawPub = key.export({ format: 'raw-public' });
@@ -58,8 +78,9 @@ for (const asymmetricKeyType of [
     assertPublicKey(createPublicKey(key));
     key.export({ format: 'der', type: 'pkcs8' });
     assert.strictEqual(key.export({ format: 'pem', type: 'pkcs8' }), keys.private);
-    assert.throws(() => key.export({ format: 'jwk' }),
-                  { code: 'ERR_CRYPTO_JWK_UNSUPPORTED_KEY_TYPE', message: 'Unsupported JWK Key Type.' });
+    const jwk = key.export({ format: 'jwk' });
+    assertPrivateJwk(jwk);
+    assert.strictEqual(key.equals(createPrivateKey({ format: 'jwk', key: jwk })), true);
 
     // Raw format round-trip
     const rawPriv = key.export({ format: 'raw-private' });
