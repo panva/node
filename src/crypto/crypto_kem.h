@@ -10,7 +10,7 @@
 #include "memory_tracker.h"
 #include "node_external_reference.h"
 
-#if OPENSSL_VERSION_MAJOR >= 3
+#if OPENSSL_VERSION_MAJOR >= 3 || defined(OPENSSL_IS_BORINGSSL)
 
 namespace node {
 namespace crypto {

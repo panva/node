@@ -35,6 +35,10 @@
 #define EVP_PKEY_ML_KEM_768 NID_ML_KEM_768
 #define EVP_PKEY_ML_KEM_1024 NID_ML_KEM_1024
 #include <openssl/core_names.h>
+#elif defined(OPENSSL_IS_BORINGSSL)
+#define OPENSSL_WITH_PQC 1
+#define EVP_PKEY_ML_KEM_768 NID_ML_KEM_768
+#define EVP_PKEY_ML_KEM_1024 NID_ML_KEM_1024
 #endif
 
 #if OPENSSL_VERSION_MAJOR >= 3
@@ -1654,7 +1658,7 @@ DataPointer argon2(const Buffer<const char>& pass,
 
 // ============================================================================
 // KEM (Key Encapsulation Mechanism)
-#if OPENSSL_VERSION_MAJOR >= 3
+#if OPENSSL_VERSION_MAJOR >= 3 || defined(OPENSSL_IS_BORINGSSL)
 
 class KEM final {
  public:
@@ -1678,13 +1682,13 @@ class KEM final {
                                  const Buffer<const void>& ciphertext);
 
  private:
-#if !OPENSSL_VERSION_PREREQ(3, 5)
+#if !defined(OPENSSL_IS_BORINGSSL) && OPENSSL_VERSION_NUMBER < 0x30500000L
   static bool SetOperationParameter(EVP_PKEY_CTX* ctx,
                                     const EVPKeyPointer& key);
 #endif
 };
 
-#endif  // OPENSSL_VERSION_MAJOR >= 3
+#endif  // OPENSSL_VERSION_MAJOR >= 3 || defined(OPENSSL_IS_BORINGSSL)
 
 // ============================================================================
 // Version metadata

@@ -196,7 +196,7 @@ if (hasOpenSSL(3)) {
   }
 }
 
-if (hasOpenSSL(3, 5)) {
+if (hasOpenSSL(3, 5) || process.features.openssl_is_boringssl) {
   for (const name of ['ML-DSA-44', 'ML-DSA-65', 'ML-DSA-87']) {
     vectors[name] = {
       result: 'CryptoKeyPair',
@@ -772,7 +772,7 @@ assert.throws(() => new CryptoKey(), { code: 'ERR_ILLEGAL_CONSTRUCTOR' });
 }
 
 // Test ML-DSA Key Generation
-if (hasOpenSSL(3, 5)) {
+if (hasOpenSSL(3, 5) || process.features.openssl_is_boringssl) {
   async function test(
     name,
     privateUsages,
@@ -815,7 +815,7 @@ if (hasOpenSSL(3, 5)) {
 }
 
 // Test ML-KEM Key Generation
-if (hasOpenSSL(3, 5)) {
+if (hasOpenSSL(3, 5) || process.features.openssl_is_boringssl) {
   async function test(
     name,
     privateUsages,
@@ -850,7 +850,13 @@ if (hasOpenSSL(3, 5)) {
     assert.strictEqual(publicKey.usages, publicKey.usages);
   }
 
-  const kTests = ['ML-KEM-512', 'ML-KEM-768', 'ML-KEM-1024'];
+  const kTests = ['ML-KEM-768', 'ML-KEM-1024'];
+
+  if (!process.features.openssl_is_boringssl) {
+    kTests.unshift('ML-KEM-512');
+  } else {
+    common.printSkipMessage('Skipping unsupported ML-KEM-512 test');
+  }
 
   const tests = kTests.map((name) => test(name,
                                           ['decapsulateKey', 'decapsulateBits'],

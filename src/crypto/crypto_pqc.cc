@@ -20,29 +20,39 @@ namespace {
 struct PqcAlgorithm {
   int id;
   const char* name;
-  bool
-      use_seed;  // true: rawSeed/NewRawSeed, false: rawPrivateKey/NewRawPrivate
+  // true: rawSeed/NewRawSeed, false: rawPrivateKey/NewRawPrivate
+  bool use_seed;
+  // true: signature algorithm (ML-DSA, SLH-DSA),
+  // false: key encapsulation mechanism (ML-KEM).
+  bool is_signature;
 };
 
+// use_seed is true for algorithms whose private key material is carried as a
+// seed (rawSeed/NewRawSeed), false for those that use the expanded private
+// key (rawPrivateKey / NewRawPrivate). ML-KEM-512 and SLH-DSA are only
+// exposed by OpenSSL and are not available in BoringSSL.
 constexpr PqcAlgorithm kPqcAlgorithms[] = {
-    {EVP_PKEY_ML_DSA_44, "ML-DSA-44", true},
-    {EVP_PKEY_ML_DSA_65, "ML-DSA-65", true},
-    {EVP_PKEY_ML_DSA_87, "ML-DSA-87", true},
-    {EVP_PKEY_ML_KEM_512, "ML-KEM-512", true},
-    {EVP_PKEY_ML_KEM_768, "ML-KEM-768", true},
-    {EVP_PKEY_ML_KEM_1024, "ML-KEM-1024", true},
-    {EVP_PKEY_SLH_DSA_SHA2_128F, "SLH-DSA-SHA2-128f", false},
-    {EVP_PKEY_SLH_DSA_SHA2_128S, "SLH-DSA-SHA2-128s", false},
-    {EVP_PKEY_SLH_DSA_SHA2_192F, "SLH-DSA-SHA2-192f", false},
-    {EVP_PKEY_SLH_DSA_SHA2_192S, "SLH-DSA-SHA2-192s", false},
-    {EVP_PKEY_SLH_DSA_SHA2_256F, "SLH-DSA-SHA2-256f", false},
-    {EVP_PKEY_SLH_DSA_SHA2_256S, "SLH-DSA-SHA2-256s", false},
-    {EVP_PKEY_SLH_DSA_SHAKE_128F, "SLH-DSA-SHAKE-128f", false},
-    {EVP_PKEY_SLH_DSA_SHAKE_128S, "SLH-DSA-SHAKE-128s", false},
-    {EVP_PKEY_SLH_DSA_SHAKE_192F, "SLH-DSA-SHAKE-192f", false},
-    {EVP_PKEY_SLH_DSA_SHAKE_192S, "SLH-DSA-SHAKE-192s", false},
-    {EVP_PKEY_SLH_DSA_SHAKE_256F, "SLH-DSA-SHAKE-256f", false},
-    {EVP_PKEY_SLH_DSA_SHAKE_256S, "SLH-DSA-SHAKE-256s", false},
+    {EVP_PKEY_ML_DSA_44, "ML-DSA-44", true, true},
+    {EVP_PKEY_ML_DSA_65, "ML-DSA-65", true, true},
+    {EVP_PKEY_ML_DSA_87, "ML-DSA-87", true, true},
+    {EVP_PKEY_ML_KEM_768, "ML-KEM-768", true, false},
+    {EVP_PKEY_ML_KEM_1024, "ML-KEM-1024", true, false},
+
+#ifndef OPENSSL_IS_BORINGSSL
+    {EVP_PKEY_ML_KEM_512, "ML-KEM-512", true, false},
+    {EVP_PKEY_SLH_DSA_SHA2_128F, "SLH-DSA-SHA2-128f", false, true},
+    {EVP_PKEY_SLH_DSA_SHA2_128S, "SLH-DSA-SHA2-128s", false, true},
+    {EVP_PKEY_SLH_DSA_SHA2_192F, "SLH-DSA-SHA2-192f", false, true},
+    {EVP_PKEY_SLH_DSA_SHA2_192S, "SLH-DSA-SHA2-192s", false, true},
+    {EVP_PKEY_SLH_DSA_SHA2_256F, "SLH-DSA-SHA2-256f", false, true},
+    {EVP_PKEY_SLH_DSA_SHA2_256S, "SLH-DSA-SHA2-256s", false, true},
+    {EVP_PKEY_SLH_DSA_SHAKE_128F, "SLH-DSA-SHAKE-128f", false, true},
+    {EVP_PKEY_SLH_DSA_SHAKE_128S, "SLH-DSA-SHAKE-128s", false, true},
+    {EVP_PKEY_SLH_DSA_SHAKE_192F, "SLH-DSA-SHAKE-192f", false, true},
+    {EVP_PKEY_SLH_DSA_SHAKE_192S, "SLH-DSA-SHAKE-192s", false, true},
+    {EVP_PKEY_SLH_DSA_SHAKE_256F, "SLH-DSA-SHAKE-256f", false, true},
+    {EVP_PKEY_SLH_DSA_SHAKE_256S, "SLH-DSA-SHAKE-256s", false, true},
+#endif
 };
 
 const PqcAlgorithm* FindPqcAlgorithmById(int id) {
@@ -176,14 +186,25 @@ KeyObjectData ImportJWKPqcKey(Environment* env, Local<Object> jwk) {
   return KeyObjectData::CreateAsymmetric(type, std::move(pkey));
 }
 
-bool IsPqcRawPrivateKeyId(int id) {
-  const PqcAlgorithm* alg = FindPqcAlgorithmById(id);
-  return alg != nullptr && !alg->use_seed;
+bool IsPqcKeyId(int id) {
+  return FindPqcAlgorithmById(id) != nullptr;
 }
 
 bool IsPqcSeedKeyId(int id) {
   const PqcAlgorithm* alg = FindPqcAlgorithmById(id);
   return alg != nullptr && alg->use_seed;
+}
+
+bool IsPqcSignatureKeyId(int id) {
+  const PqcAlgorithm* alg = FindPqcAlgorithmById(id);
+  return alg != nullptr && alg->is_signature;
+}
+
+int GetPqcNidFromName(const char* name) {
+  for (const auto& alg : kPqcAlgorithms) {
+    if (StringEqualNoCase(name, alg.name)) return alg.id;
+  }
+  return NID_undef;
 }
 #endif
 }  // namespace crypto
