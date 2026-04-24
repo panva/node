@@ -1793,10 +1793,6 @@ void NativeCryptoKey::Initialize(Environment* env, Local<Object> target) {
             target,
             "createCryptoKeyClass",
             NativeCryptoKey::CreateCryptoKeyClass);
-  SetMethod(env->context(),
-            target,
-            "getCryptoKeyHandle",
-            NativeCryptoKey::GetKeyHandle);
   SetMethod(
       env->context(), target, "getCryptoKeySlots", NativeCryptoKey::GetSlots);
 }
@@ -1804,7 +1800,6 @@ void NativeCryptoKey::Initialize(Environment* env, Local<Object> target) {
 void NativeCryptoKey::RegisterExternalReferences(
     ExternalReferenceRegistry* registry) {
   registry->Register(NativeCryptoKey::CreateCryptoKeyClass);
-  registry->Register(NativeCryptoKey::GetKeyHandle);
   registry->Register(NativeCryptoKey::GetSlots);
   registry->Register(NativeCryptoKey::New);
 }
@@ -1898,18 +1893,6 @@ void NativeCryptoKey::CreateCryptoKeyClass(
   env->set_crypto_internal_cryptokey_constructor(
       internal_ctor_v.As<Function>());
   args.GetReturnValue().Set(ret);
-}
-
-void NativeCryptoKey::GetKeyHandle(const FunctionCallbackInfo<Value>& args) {
-  Environment* env = Environment::GetCurrent(args);
-  CHECK_EQ(args.Length(), 1);
-  CHECK(HasInstance(args[0]));
-  NativeCryptoKey* native = Unwrap<NativeCryptoKey>(args[0].As<Object>());
-  Local<Object> handle;
-  if (!KeyObjectHandle::Create(env, native->handle_data_).ToLocal(&handle)) {
-    return;
-  }
-  args.GetReturnValue().Set(handle);
 }
 
 // Returns all of the key's internal slot values as a single Array:

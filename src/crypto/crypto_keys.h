@@ -258,10 +258,9 @@ class NativeCryptoKey : public BaseObject {
 
   // True if `value` is a real NativeCryptoKey instance. Checks the
   // kClassTagField internal field.
-  // Used by `GetSlots` / `GetKeyHandle` to validate their receiver.
+  // Used by `GetSlots` to validate its receiver.
   static bool HasInstance(v8::Local<v8::Value> value);
 
-  static void GetKeyHandle(const v8::FunctionCallbackInfo<v8::Value>& args);
   // Returns [type, extractable, algorithm, usages, handle] in one call
   // so JS can prime a per-instance cache on first access.
   static void GetSlots(const v8::FunctionCallbackInfo<v8::Value>& args);
