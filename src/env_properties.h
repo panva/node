@@ -480,6 +480,7 @@
   V(crypto_key_object_private_constructor, v8::Function)                       \
   V(crypto_key_object_public_constructor, v8::Function)                        \
   V(crypto_key_object_secret_constructor, v8::Function)                        \
+  V(crypto_internal_cryptokey_constructor, v8::Function)                       \
   V(enhance_fatal_stack_after_inspector, v8::Function)                         \
   V(enhance_fatal_stack_before_inspector, v8::Function)                        \
   V(get_source_map_error_source, v8::Function)                                 \
