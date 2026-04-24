@@ -245,7 +245,8 @@ class NativeKeyObject : public BaseObject {
 class NativeCryptoKey : public BaseObject {
  public:
   enum InternalFields {
-    kClassTagField = BaseObject::kInternalFieldCount,
+    kAlgorithmField = BaseObject::kInternalFieldCount,
+    kUsagesField,
     kInternalFieldCount,
   };
 
@@ -256,10 +257,10 @@ class NativeCryptoKey : public BaseObject {
   static void CreateCryptoKeyClass(
       const v8::FunctionCallbackInfo<v8::Value>& args);
 
-  // True if `value` is a real NativeCryptoKey instance. Checks the
-  // kClassTagField internal field.
+  // True if `value` is a real NativeCryptoKey instance. Uses the
+  // FunctionTemplate stored on the Environment as a brand check.
   // Used by `GetSlots` to validate its receiver.
-  static bool HasInstance(v8::Local<v8::Value> value);
+  static bool HasInstance(Environment* env, v8::Local<v8::Value> value);
 
   // Returns [type, extractable, algorithm, usages, handle] in one call
   // so JS can prime a per-instance cache on first access.
@@ -317,8 +318,6 @@ class NativeCryptoKey : public BaseObject {
   }
 
   KeyObjectData handle_data_;
-  v8::Global<v8::Object> algorithm_;
-  v8::Global<v8::Array> usages_;
   bool extractable_ = false;
 };
 
