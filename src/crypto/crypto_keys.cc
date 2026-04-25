@@ -27,6 +27,7 @@ using ncrypto::EVPKeyCtxPointer;
 using ncrypto::EVPKeyPointer;
 using ncrypto::MarkPopErrorOnReturn;
 using v8::Array;
+using v8::Boolean;
 using v8::Context;
 using v8::Function;
 using v8::FunctionCallbackInfo;
@@ -1815,6 +1816,39 @@ bool IsNativeCryptoKey(Environment* env, Local<Value> value) {
 
 bool NativeCryptoKey::HasInstance(Environment* env, Local<Value> value) {
   return IsNativeCryptoKey(env, value);
+}
+
+MaybeLocal<Value> NativeCryptoKey::Create(Environment* env,
+                                          const KeyObjectData& data,
+                                          Local<Value> algorithm,
+                                          Local<Value> usages,
+                                          bool extractable) {
+  Local<Context> context = env->context();
+  Isolate* isolate = env->isolate();
+  CHECK(algorithm->IsObject());
+  CHECK(usages->IsArray());
+
+  Local<Object> handle;
+  if (!KeyObjectHandle::Create(env, data).ToLocal(&handle)) return {};
+
+  if (env->crypto_internal_cryptokey_constructor().IsEmpty()) {
+    Local<Value> arg = FIXED_ONE_BYTE_STRING(isolate, "internal/crypto/keys");
+    if (env->builtin_module_require()
+            ->Call(context, Null(isolate), 1, &arg)
+            .IsEmpty()) {
+      return {};
+    }
+  }
+
+  Local<Function> cryptokey_ctor = env->crypto_internal_cryptokey_constructor();
+  CHECK(!cryptokey_ctor.IsEmpty());
+  Local<Value> ctor_args[] = {
+      handle,
+      algorithm,
+      usages,
+      Boolean::New(isolate, extractable),
+  };
+  return cryptokey_ctor->NewInstance(context, arraysize(ctor_args), ctor_args);
 }
 
 void NativeCryptoKey::New(const FunctionCallbackInfo<Value>& args) {

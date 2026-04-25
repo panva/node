@@ -249,12 +249,16 @@ class ByteSource final {
       : data_(data), allocated_data_(allocated_data), size_(size) {}
 };
 
-enum CryptoJobMode {
-  kCryptoJobAsync,
-  kCryptoJobSync
-};
+enum CryptoJobMode { kCryptoJobAsync, kCryptoJobSync, kCryptoJobWebCrypto };
 
 CryptoJobMode GetCryptoJobMode(v8::Local<v8::Value> args);
+bool IsCryptoJobAsync(CryptoJobMode mode);
+
+v8::MaybeLocal<v8::Value> CreateWebCryptoJobError(Environment* env,
+                                                  v8::Local<v8::Value> cause);
+
+v8::MaybeLocal<v8::Value> ToWebCryptoJobResult(Environment* env,
+                                               v8::Local<v8::Value> value);
 
 template <typename CryptoJobTraits>
 class CryptoJob : public AsyncWrap, public ThreadPoolWork {
@@ -265,14 +269,20 @@ class CryptoJob : public AsyncWrap, public ThreadPoolWork {
                      v8::Local<v8::Object> object,
                      AsyncWrap::ProviderType type,
                      CryptoJobMode mode,
-                     AdditionalParams&& params)
+                     AdditionalParams&& params,
+                     v8::Local<v8::Value> config_error = {})
       : AsyncWrap(env, object, type),
         ThreadPoolWork(env, "crypto"),
         mode_(mode),
         params_(std::move(params)) {
+    if (!config_error.IsEmpty())
+      config_error_.Reset(env->isolate(), config_error);
+
     // If the CryptoJob is async, then the instance will be
     // cleaned up when AfterThreadPoolWork is called.
-    if (mode == kCryptoJobSync) MakeWeak();
+    // Sync jobs and WebCrypto jobs with configuration errors are never
+    // scheduled, so let the JS wrapper own their lifetime.
+    if (mode == kCryptoJobSync || !config_error.IsEmpty()) MakeWeak();
   }
 
   bool IsNotIndicativeOfMemoryLeakAtExit() const override {
@@ -283,9 +293,53 @@ class CryptoJob : public AsyncWrap, public ThreadPoolWork {
 
   void AfterThreadPoolWork(int status) override {
     Environment* env = AsyncWrap::env();
-    CHECK_EQ(mode_, kCryptoJobAsync);
+    CHECK(IsCryptoJobAsync(mode_));
     CHECK(status == 0 || status == UV_ECANCELED);
     std::unique_ptr<CryptoJob> ptr(this);
+    if (mode_ == kCryptoJobWebCrypto) {
+      v8::HandleScope handle_scope(env->isolate());
+      v8::Context::Scope context_scope(env->context());
+      InternalCallbackScope callback_scope(this);
+
+      if (status == UV_ECANCELED) {
+        v8::Local<v8::Value> exception = v8::Exception::Error(
+            OneByteString(env->isolate(), "The operation was canceled"));
+        ptr->RejectWebCrypto(exception);
+        return;
+      }
+
+      v8::Local<v8::Value> err;
+      v8::Local<v8::Value> result;
+      {
+        node::errors::TryCatchScope try_catch(env);
+        if (ptr->ToResult(&err, &result).IsNothing()) {
+          CHECK(try_catch.HasCaught());
+          CHECK(try_catch.CanContinue());
+          err = try_catch.Exception();
+        }
+      }
+
+      if (!err.IsEmpty() && !err->IsUndefined()) {
+        ptr->RejectWebCrypto(err);
+        return;
+      }
+
+      CHECK(!result.IsEmpty());
+      v8::Local<v8::Value> webcrypto_result;
+      {
+        node::errors::TryCatchScope try_catch(env);
+        if (!ToWebCryptoJobResult(env, result).ToLocal(&webcrypto_result)) {
+          CHECK(try_catch.HasCaught());
+          CHECK(try_catch.CanContinue());
+          ptr->RejectWebCrypto(try_catch.Exception());
+          return;
+        }
+      }
+
+      ptr->ResolveWebCrypto(webcrypto_result);
+      return;
+    }
+
     // If the job was canceled do not execute the callback.
     // TODO(@jasnell): We should likely revisit skipping the
     // callback on cancel as that could leave the JS in a pending
@@ -340,6 +394,26 @@ class CryptoJob : public AsyncWrap, public ThreadPoolWork {
 
     CryptoJob<CryptoJobTraits>* job;
     ASSIGN_OR_RETURN_UNWRAP(&job, args.This());
+    if (job->mode() == kCryptoJobWebCrypto) {
+      v8::Local<v8::Promise::Resolver> resolver;
+      if (!v8::Promise::Resolver::New(env->context()).ToLocal(&resolver)) {
+        return;
+      }
+
+      CHECK(job->resolver_.IsEmpty());
+      job->resolver_.Reset(env->isolate(), resolver);
+      args.GetReturnValue().Set(resolver->GetPromise());
+
+      if (!job->config_error_.IsEmpty()) {
+        v8::Local<v8::Value> cause =
+            v8::Local<v8::Value>::New(env->isolate(), job->config_error_);
+        job->RejectWebCrypto(cause);
+        return;
+      }
+
+      return job->ScheduleWork();
+    }
+
     if (job->mode() == kCryptoJobAsync)
       return job->ScheduleWork();
 
@@ -376,9 +450,31 @@ class CryptoJob : public AsyncWrap, public ThreadPoolWork {
   }
 
  private:
+  void ResolveWebCrypto(v8::Local<v8::Value> value) {
+    Environment* env = AsyncWrap::env();
+    v8::Local<v8::Promise::Resolver> resolver =
+        v8::Local<v8::Promise::Resolver>::New(env->isolate(), resolver_);
+    USE(resolver->Resolve(env->context(), value).FromJust());
+    resolver_.Reset();
+  }
+
+  void RejectWebCrypto(v8::Local<v8::Value> cause) {
+    Environment* env = AsyncWrap::env();
+    v8::Local<v8::Value> exception;
+    if (!CreateWebCryptoJobError(env, cause).ToLocal(&exception)) {
+      exception = cause;
+    }
+    v8::Local<v8::Promise::Resolver> resolver =
+        v8::Local<v8::Promise::Resolver>::New(env->isolate(), resolver_);
+    USE(resolver->Reject(env->context(), exception).FromJust());
+    resolver_.Reset();
+  }
+
   const CryptoJobMode mode_;
   CryptoErrorStore errors_;
   AdditionalParams params_;
+  v8::Global<v8::Value> config_error_;
+  v8::Global<v8::Promise::Resolver> resolver_;
 };
 
 template <typename DeriveBitsTraits>
@@ -392,15 +488,28 @@ class DeriveBitsJob final : public CryptoJob<DeriveBitsTraits> {
     CryptoJobMode mode = GetCryptoJobMode(args[0]);
 
     AdditionalParams params;
-    if (DeriveBitsTraits::AdditionalConfig(mode, args, 1, &params)
-            .IsNothing()) {
-      // The DeriveBitsTraits::AdditionalConfig is responsible for
-      // calling an appropriate THROW_CRYPTO_* variant reporting
-      // whatever error caused initialization to fail.
-      return;
+    v8::Local<v8::Value> config_error;
+    if (mode == kCryptoJobWebCrypto) {
+      v8::TryCatch try_catch(env->isolate());
+      if (DeriveBitsTraits::AdditionalConfig(mode, args, 1, &params)
+              .IsNothing()) {
+        config_error =
+            try_catch.HasCaught()
+                ? try_catch.Exception()
+                : v8::Exception::Error(OneByteString(
+                      env->isolate(), "Crypto job configuration failed"));
+      }
+    } else {
+      if (DeriveBitsTraits::AdditionalConfig(mode, args, 1, &params)
+              .IsNothing()) {
+        // The DeriveBitsTraits::AdditionalConfig is responsible for
+        // calling an appropriate THROW_CRYPTO_* variant reporting
+        // whatever error caused initialization to fail.
+        return;
+      }
     }
 
-    new DeriveBitsJob(env, args.This(), mode, std::move(params));
+    new DeriveBitsJob(env, args.This(), mode, std::move(params), config_error);
   }
 
   static void Initialize(
@@ -413,17 +522,17 @@ class DeriveBitsJob final : public CryptoJob<DeriveBitsTraits> {
     CryptoJob<DeriveBitsTraits>::RegisterExternalReferences(New, registry);
   }
 
-  DeriveBitsJob(
-      Environment* env,
-      v8::Local<v8::Object> object,
-      CryptoJobMode mode,
-      AdditionalParams&& params)
-      : CryptoJob<DeriveBitsTraits>(
-            env,
-            object,
-            DeriveBitsTraits::Provider,
-            mode,
-            std::move(params)) {}
+  DeriveBitsJob(Environment* env,
+                v8::Local<v8::Object> object,
+                CryptoJobMode mode,
+                AdditionalParams&& params,
+                v8::Local<v8::Value> config_error = {})
+      : CryptoJob<DeriveBitsTraits>(env,
+                                    object,
+                                    DeriveBitsTraits::Provider,
+                                    mode,
+                                    std::move(params),
+                                    config_error) {}
 
   void DoThreadPoolWork() override {
     ncrypto::ClearErrorOnReturn clear_error_on_return;

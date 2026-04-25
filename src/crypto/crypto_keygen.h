@@ -22,6 +22,20 @@ enum class KeyGenJobStatus {
   FAILED
 };
 
+struct WebCryptoKeyGenConfig final {
+  v8::Global<v8::Value> algorithm;
+  v8::Global<v8::Array> usages;
+  v8::Global<v8::Array> public_usages;
+  v8::Global<v8::Array> private_usages;
+  bool extractable = false;
+
+  WebCryptoKeyGenConfig() = default;
+  WebCryptoKeyGenConfig(WebCryptoKeyGenConfig&&) = default;
+  WebCryptoKeyGenConfig& operator=(WebCryptoKeyGenConfig&&) = default;
+  WebCryptoKeyGenConfig(const WebCryptoKeyGenConfig&) = delete;
+  WebCryptoKeyGenConfig& operator=(const WebCryptoKeyGenConfig&) = delete;
+};
+
 // A Base CryptoJob for generating secret keys or key pairs.
 // The KeyGenTraits is largely responsible for the details of
 // the implementation, while KeyGenJob handles the common
@@ -40,15 +54,55 @@ class KeyGenJob final : public CryptoJob<KeyGenTraits> {
     unsigned int offset = 1;
 
     AdditionalParams params;
-    if (KeyGenTraits::AdditionalConfig(mode, args, &offset, &params)
-            .IsNothing()) {
-      // The KeyGenTraits::AdditionalConfig is responsible for
-      // calling an appropriate THROW_CRYPTO_* variant reporting
-      // whatever error caused initialization to fail.
-      return;
+    WebCryptoKeyGenConfig config;
+    v8::Local<v8::Value> config_error;
+    if (mode == kCryptoJobWebCrypto) {
+      v8::TryCatch try_catch(env->isolate());
+      if (KeyGenTraits::AdditionalConfig(mode, args, &offset, &params)
+              .IsNothing()) {
+        // The pending exception is captured below.
+      } else if constexpr (KeyGenTraits::kWebCryptoKeyPair) {
+        CHECK(args[offset]->IsObject());
+        CHECK(args[offset + 1]->IsArray());
+        CHECK(args[offset + 2]->IsArray());
+        CHECK(args[offset + 3]->IsBoolean());
+        config.algorithm.Reset(env->isolate(), args[offset]);
+        config.public_usages.Reset(env->isolate(),
+                                   args[offset + 1].As<v8::Array>());
+        config.private_usages.Reset(env->isolate(),
+                                    args[offset + 2].As<v8::Array>());
+        config.extractable = args[offset + 3]->IsTrue();
+      } else {
+        CHECK(args[offset]->IsObject());
+        CHECK(args[offset + 1]->IsArray());
+        CHECK(args[offset + 2]->IsBoolean());
+        config.algorithm.Reset(env->isolate(), args[offset]);
+        config.usages.Reset(env->isolate(), args[offset + 1].As<v8::Array>());
+        config.extractable = args[offset + 2]->IsTrue();
+      }
+
+      if (try_catch.HasCaught()) {
+        config_error = try_catch.Exception();
+      } else if (config.algorithm.IsEmpty()) {
+        config_error = v8::Exception::Error(
+            OneByteString(env->isolate(), "Crypto job configuration failed"));
+      }
+    } else {
+      if (KeyGenTraits::AdditionalConfig(mode, args, &offset, &params)
+              .IsNothing()) {
+        // The KeyGenTraits::AdditionalConfig is responsible for
+        // calling an appropriate THROW_CRYPTO_* variant reporting
+        // whatever error caused initialization to fail.
+        return;
+      }
     }
 
-    new KeyGenJob<KeyGenTraits>(env, args.This(), mode, std::move(params));
+    new KeyGenJob<KeyGenTraits>(env,
+                                args.This(),
+                                mode,
+                                std::move(params),
+                                std::move(config),
+                                config_error);
   }
 
   static void Initialize(
@@ -61,17 +115,19 @@ class KeyGenJob final : public CryptoJob<KeyGenTraits> {
     CryptoJob<KeyGenTraits>::RegisterExternalReferences(New, registry);
   }
 
-  KeyGenJob(
-      Environment* env,
-      v8::Local<v8::Object> object,
-      CryptoJobMode mode,
-      AdditionalParams&& params)
-      : CryptoJob<KeyGenTraits>(
-            env,
-            object,
-            KeyGenTraits::Provider,
-            mode,
-            std::move(params)) {}
+  KeyGenJob(Environment* env,
+            v8::Local<v8::Object> object,
+            CryptoJobMode mode,
+            AdditionalParams&& params,
+            WebCryptoKeyGenConfig&& config,
+            v8::Local<v8::Value> config_error = {})
+      : CryptoJob<KeyGenTraits>(env,
+                                object,
+                                KeyGenTraits::Provider,
+                                mode,
+                                std::move(params),
+                                config_error),
+        webcrypto_config_(std::move(config)) {}
 
   void DoThreadPoolWork() override {
     AdditionalParams* params = CryptoJob<KeyGenTraits>::params();
@@ -98,7 +154,11 @@ class KeyGenJob final : public CryptoJob<KeyGenTraits> {
 
     if (status_ == KeyGenJobStatus::OK) {
       v8::TryCatch try_catch(env->isolate());
-      if (KeyGenTraits::EncodeKey(env, params).ToLocal(result)) {
+      v8::MaybeLocal<v8::Value> encoded =
+          CryptoJob<KeyGenTraits>::mode() == kCryptoJobWebCrypto
+              ? EncodeWebCryptoKey(env, params)
+              : KeyGenTraits::EncodeKey(env, params);
+      if (encoded.ToLocal(result)) {
         *err = Undefined(env->isolate());
       } else {
         CHECK(try_catch.HasCaught());
@@ -122,6 +182,58 @@ class KeyGenJob final : public CryptoJob<KeyGenTraits> {
   SET_SELF_SIZE(KeyGenJob)
 
  private:
+  v8::MaybeLocal<v8::Value> EncodeWebCryptoKey(Environment* env,
+                                               AdditionalParams* params) {
+    v8::Isolate* isolate = env->isolate();
+    v8::Local<v8::Value> algorithm =
+        v8::Local<v8::Value>::New(isolate, webcrypto_config_.algorithm);
+
+    if constexpr (KeyGenTraits::kWebCryptoKeyPair) {
+      v8::Local<v8::Value> public_key;
+      v8::Local<v8::Value> private_key;
+      if (!NativeCryptoKey::Create(
+               env,
+               params->key.addRefWithType(kKeyTypePublic),
+               algorithm,
+               v8::Local<v8::Array>::New(isolate,
+                                         webcrypto_config_.public_usages),
+               true)
+               .ToLocal(&public_key) ||
+          !NativeCryptoKey::Create(
+               env,
+               params->key.addRefWithType(kKeyTypePrivate),
+               algorithm,
+               v8::Local<v8::Array>::New(isolate,
+                                         webcrypto_config_.private_usages),
+               webcrypto_config_.extractable)
+               .ToLocal(&private_key)) {
+        return {};
+      }
+
+      v8::Local<v8::Object> ret = v8::Object::New(isolate);
+      if (ret->Set(env->context(),
+                   OneByteString(isolate, "publicKey"),
+                   public_key)
+              .IsNothing() ||
+          ret->Set(env->context(),
+                   OneByteString(isolate, "privateKey"),
+                   private_key)
+              .IsNothing()) {
+        return {};
+      }
+      return ret;
+    } else {
+      auto data = KeyObjectData::CreateSecret(std::move(params->out));
+      return NativeCryptoKey::Create(
+          env,
+          data,
+          algorithm,
+          v8::Local<v8::Array>::New(isolate, webcrypto_config_.usages),
+          webcrypto_config_.extractable);
+    }
+  }
+
+  WebCryptoKeyGenConfig webcrypto_config_;
   KeyGenJobStatus status_ = KeyGenJobStatus::FAILED;
 };
 
@@ -130,6 +242,7 @@ template <typename KeyPairAlgorithmTraits>
 struct KeyPairGenTraits final {
   using AdditionalParameters =
       typename KeyPairAlgorithmTraits::AdditionalParameters;
+  static constexpr bool kWebCryptoKeyPair = true;
 
   static const AsyncWrap::ProviderType Provider =
       AsyncWrap::PROVIDER_KEYPAIRGENREQUEST;
@@ -146,8 +259,13 @@ struct KeyPairGenTraits final {
     // process input parameters. This allows each job to have a variable
     // number of input parameters specific to each job type.
     if (KeyPairAlgorithmTraits::AdditionalConfig(mode, args, offset, params)
-            .IsNothing() ||
-        !KeyObjectData::GetPublicKeyEncodingFromJs(
+            .IsNothing()) {
+      return v8::Nothing<void>();
+    }
+
+    if (mode == kCryptoJobWebCrypto) return v8::JustVoid();
+
+    if (!KeyObjectData::GetPublicKeyEncodingFromJs(
              args, offset, kKeyContextGenerate)
              .To(&params->public_key_encoding) ||
         !KeyObjectData::GetPrivateKeyEncodingFromJs(
@@ -204,6 +322,7 @@ struct SecretKeyGenConfig final : public MemoryRetainer {
 
 struct SecretKeyGenTraits final {
   using AdditionalParameters = SecretKeyGenConfig;
+  static constexpr bool kWebCryptoKeyPair = false;
   static const AsyncWrap::ProviderType Provider =
       AsyncWrap::PROVIDER_KEYGENREQUEST;
   static constexpr const char* JobName = "SecretKeyGenJob";
@@ -287,4 +406,3 @@ using SecretKeyGenJob = KeyGenJob<SecretKeyGenTraits>;
 
 #endif  // defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
 #endif  // SRC_CRYPTO_CRYPTO_KEYGEN_H_
-

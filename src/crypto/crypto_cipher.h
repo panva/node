@@ -151,26 +151,52 @@ class CipherJob final : public CryptoJob<CipherTraits> {
     CHECK_NOT_NULL(key);
 
     ArrayBufferOrViewContents<char> data(args[3]);  // data to operate on
-    if (!data.CheckSizeInt32())
-      return THROW_ERR_OUT_OF_RANGE(env, "data is too large");
 
     AdditionalParams params;
-    if (CipherTraits::AdditionalConfig(mode, args, 4, cipher_mode, &params)
-            .IsNothing()) {
-      // The CipherTraits::AdditionalConfig is responsible for
-      // calling an appropriate THROW_CRYPTO_* variant reporting
-      // whatever error caused initialization to fail.
-      return;
+    ByteSource in;
+    bool configured = false;
+    v8::Local<v8::Value> config_error;
+    if (mode == kCryptoJobWebCrypto) {
+      v8::TryCatch try_catch(env->isolate());
+      if (!data.CheckSizeInt32()) {
+        THROW_ERR_OUT_OF_RANGE(env, "data is too large");
+      } else if (CipherTraits::AdditionalConfig(
+                     mode, args, 4, cipher_mode, &params)
+                     .IsNothing()) {
+        // The pending exception is captured below.
+      } else {
+        in = data.ToCopy();
+        configured = true;
+      }
+
+      if (try_catch.HasCaught()) {
+        config_error = try_catch.Exception();
+      } else if (!configured) {
+        config_error = v8::Exception::Error(
+            OneByteString(env->isolate(), "Crypto job configuration failed"));
+      }
+    } else {
+      if (!data.CheckSizeInt32())
+        return THROW_ERR_OUT_OF_RANGE(env, "data is too large");
+
+      if (CipherTraits::AdditionalConfig(mode, args, 4, cipher_mode, &params)
+              .IsNothing()) {
+        // The CipherTraits::AdditionalConfig is responsible for
+        // calling an appropriate THROW_CRYPTO_* variant reporting
+        // whatever error caused initialization to fail.
+        return;
+      }
+      in = IsCryptoJobAsync(mode) ? data.ToCopy() : data.ToByteSource();
     }
 
-    new CipherJob<CipherTraits>(
-        env,
-        args.This(),
-        mode,
-        key,
-        cipher_mode,
-        data,
-        std::move(params));
+    new CipherJob<CipherTraits>(env,
+                                args.This(),
+                                mode,
+                                key,
+                                cipher_mode,
+                                std::move(in),
+                                std::move(params),
+                                config_error);
   }
 
   static void Initialize(
@@ -188,16 +214,18 @@ class CipherJob final : public CryptoJob<CipherTraits> {
             CryptoJobMode mode,
             KeyObjectHandle* key,
             WebCryptoCipherMode cipher_mode,
-            const ArrayBufferOrViewContents<char>& data,
-            AdditionalParams&& params)
+            ByteSource&& in,
+            AdditionalParams&& params,
+            v8::Local<v8::Value> config_error = {})
       : CryptoJob<CipherTraits>(env,
                                 object,
                                 AsyncWrap::PROVIDER_CIPHERREQUEST,
                                 mode,
-                                std::move(params)),
+                                std::move(params),
+                                config_error),
         key_(key->Data().addRef()),
         cipher_mode_(cipher_mode),
-        in_(mode == kCryptoJobAsync ? data.ToCopy() : data.ToByteSource()) {}
+        in_(std::move(in)) {}
 
   const KeyObjectData& key() const { return key_; }
 
@@ -261,7 +289,7 @@ class CipherJob final : public CryptoJob<CipherTraits> {
 
   SET_SELF_SIZE(CipherJob)
   void MemoryInfo(MemoryTracker* tracker) const override {
-    if (CryptoJob<CipherTraits>::mode() == kCryptoJobAsync)
+    if (IsCryptoJobAsync(CryptoJob<CipherTraits>::mode()))
       tracker->TrackFieldWithSize("in", in_.size());
     tracker->TrackFieldWithSize("out", out_.size());
     CryptoJob<CipherTraits>::MemoryInfo(tracker);
