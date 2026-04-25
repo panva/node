@@ -169,6 +169,7 @@ export const vectors = {
   ],
   'deriveBits': [
     [argon2, { name: 'Argon2d', nonce: Buffer.alloc(0), parallelism: 1, memory: 8, passes: 1 }, 32],
+    [false, { name: 'Argon2d', nonce: Buffer.alloc(0), parallelism: 1, memory: 8, passes: 0 }, 32],
     [argon2, { name: 'Argon2d', nonce: Buffer.alloc(0), parallelism: 2, memory: 16, passes: 1 }, 32],
     [argon2, { name: 'Argon2d', nonce: Buffer.alloc(0), parallelism: 1, memory: 8, passes: 1, secretValue: Buffer.alloc(0) }, 32],
     [argon2, { name: 'Argon2d', nonce: Buffer.alloc(0), parallelism: 1, memory: 8, passes: 1, associatedData: Buffer.alloc(0) }, 32],
