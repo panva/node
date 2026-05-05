@@ -11,5 +11,6 @@
     openssl_3_5
     openssl_3_6
     openssl_4_0
+    boringssl
     ;
 }
