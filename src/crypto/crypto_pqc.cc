@@ -17,41 +17,104 @@ namespace crypto {
 
 #if OPENSSL_WITH_PQC
 namespace {
+using PqcKeyTypeGetter = Local<String> (Environment::*)() const;
+
+enum PqcAlgorithmFlag {
+  kPqcRawPrivate = 1 << 0,
+  kPqcRawSeed = 1 << 1,
+  kPqcSignature = 1 << 2,
+};
+
 struct PqcAlgorithm {
   int id;
   const char* name;
-  // true: rawSeed/NewRawSeed, false: rawPrivateKey/NewRawPrivate
-  bool use_seed;
-  // true: signature algorithm (ML-DSA, SLH-DSA),
-  // false: key encapsulation mechanism (ML-KEM).
-  bool is_signature;
+  PqcKeyTypeGetter key_type;
+  int flags;
 };
 
-// use_seed is true for algorithms whose private key material is carried as a
-// seed (rawSeed/NewRawSeed), false for those that use the expanded private
-// key (rawPrivateKey / NewRawPrivate). ML-KEM-512 and SLH-DSA are only
-// exposed by OpenSSL and are not available in BoringSSL.
-constexpr PqcAlgorithm kPqcAlgorithms[] = {
-    {EVP_PKEY_ML_DSA_44, "ML-DSA-44", true, true},
-    {EVP_PKEY_ML_DSA_65, "ML-DSA-65", true, true},
-    {EVP_PKEY_ML_DSA_87, "ML-DSA-87", true, true},
-    {EVP_PKEY_ML_KEM_768, "ML-KEM-768", true, false},
-    {EVP_PKEY_ML_KEM_1024, "ML-KEM-1024", true, false},
+// ML-DSA and ML-KEM carry private material as a seed. SLH-DSA uses the
+// expanded private key and is only exposed by OpenSSL.
+constexpr int kPqcMlDsaFlags = kPqcRawSeed | kPqcSignature;
+constexpr int kPqcMlKemFlags = kPqcRawSeed;
+constexpr int kPqcSlhDsaFlags = kPqcRawPrivate | kPqcSignature;
 
-#ifndef OPENSSL_IS_BORINGSSL
-    {EVP_PKEY_ML_KEM_512, "ML-KEM-512", true, false},
-    {EVP_PKEY_SLH_DSA_SHA2_128F, "SLH-DSA-SHA2-128f", false, true},
-    {EVP_PKEY_SLH_DSA_SHA2_128S, "SLH-DSA-SHA2-128s", false, true},
-    {EVP_PKEY_SLH_DSA_SHA2_192F, "SLH-DSA-SHA2-192f", false, true},
-    {EVP_PKEY_SLH_DSA_SHA2_192S, "SLH-DSA-SHA2-192s", false, true},
-    {EVP_PKEY_SLH_DSA_SHA2_256F, "SLH-DSA-SHA2-256f", false, true},
-    {EVP_PKEY_SLH_DSA_SHA2_256S, "SLH-DSA-SHA2-256s", false, true},
-    {EVP_PKEY_SLH_DSA_SHAKE_128F, "SLH-DSA-SHAKE-128f", false, true},
-    {EVP_PKEY_SLH_DSA_SHAKE_128S, "SLH-DSA-SHAKE-128s", false, true},
-    {EVP_PKEY_SLH_DSA_SHAKE_192F, "SLH-DSA-SHAKE-192f", false, true},
-    {EVP_PKEY_SLH_DSA_SHAKE_192S, "SLH-DSA-SHAKE-192s", false, true},
-    {EVP_PKEY_SLH_DSA_SHAKE_256F, "SLH-DSA-SHAKE-256f", false, true},
-    {EVP_PKEY_SLH_DSA_SHAKE_256S, "SLH-DSA-SHAKE-256s", false, true},
+constexpr PqcAlgorithm kPqcAlgorithms[] = {
+    {EVP_PKEY_ML_DSA_44,
+     "ML-DSA-44",
+     &Environment::crypto_ml_dsa_44_string,
+     kPqcMlDsaFlags},
+    {EVP_PKEY_ML_DSA_65,
+     "ML-DSA-65",
+     &Environment::crypto_ml_dsa_65_string,
+     kPqcMlDsaFlags},
+    {EVP_PKEY_ML_DSA_87,
+     "ML-DSA-87",
+     &Environment::crypto_ml_dsa_87_string,
+     kPqcMlDsaFlags},
+    {EVP_PKEY_ML_KEM_768,
+     "ML-KEM-768",
+     &Environment::crypto_ml_kem_768_string,
+     kPqcMlKemFlags},
+    {EVP_PKEY_ML_KEM_1024,
+     "ML-KEM-1024",
+     &Environment::crypto_ml_kem_1024_string,
+     kPqcMlKemFlags},
+
+#if OPENSSL_WITH_PQC_ML_KEM_512
+    {EVP_PKEY_ML_KEM_512,
+     "ML-KEM-512",
+     &Environment::crypto_ml_kem_512_string,
+     kPqcMlKemFlags},
+#endif
+#if OPENSSL_WITH_PQC_SLH_DSA
+    {EVP_PKEY_SLH_DSA_SHA2_128F,
+     "SLH-DSA-SHA2-128f",
+     &Environment::crypto_slh_dsa_sha2_128f_string,
+     kPqcSlhDsaFlags},
+    {EVP_PKEY_SLH_DSA_SHA2_128S,
+     "SLH-DSA-SHA2-128s",
+     &Environment::crypto_slh_dsa_sha2_128s_string,
+     kPqcSlhDsaFlags},
+    {EVP_PKEY_SLH_DSA_SHA2_192F,
+     "SLH-DSA-SHA2-192f",
+     &Environment::crypto_slh_dsa_sha2_192f_string,
+     kPqcSlhDsaFlags},
+    {EVP_PKEY_SLH_DSA_SHA2_192S,
+     "SLH-DSA-SHA2-192s",
+     &Environment::crypto_slh_dsa_sha2_192s_string,
+     kPqcSlhDsaFlags},
+    {EVP_PKEY_SLH_DSA_SHA2_256F,
+     "SLH-DSA-SHA2-256f",
+     &Environment::crypto_slh_dsa_sha2_256f_string,
+     kPqcSlhDsaFlags},
+    {EVP_PKEY_SLH_DSA_SHA2_256S,
+     "SLH-DSA-SHA2-256s",
+     &Environment::crypto_slh_dsa_sha2_256s_string,
+     kPqcSlhDsaFlags},
+    {EVP_PKEY_SLH_DSA_SHAKE_128F,
+     "SLH-DSA-SHAKE-128f",
+     &Environment::crypto_slh_dsa_shake_128f_string,
+     kPqcSlhDsaFlags},
+    {EVP_PKEY_SLH_DSA_SHAKE_128S,
+     "SLH-DSA-SHAKE-128s",
+     &Environment::crypto_slh_dsa_shake_128s_string,
+     kPqcSlhDsaFlags},
+    {EVP_PKEY_SLH_DSA_SHAKE_192F,
+     "SLH-DSA-SHAKE-192f",
+     &Environment::crypto_slh_dsa_shake_192f_string,
+     kPqcSlhDsaFlags},
+    {EVP_PKEY_SLH_DSA_SHAKE_192S,
+     "SLH-DSA-SHAKE-192s",
+     &Environment::crypto_slh_dsa_shake_192s_string,
+     kPqcSlhDsaFlags},
+    {EVP_PKEY_SLH_DSA_SHAKE_256F,
+     "SLH-DSA-SHAKE-256f",
+     &Environment::crypto_slh_dsa_shake_256f_string,
+     kPqcSlhDsaFlags},
+    {EVP_PKEY_SLH_DSA_SHAKE_256S,
+     "SLH-DSA-SHAKE-256s",
+     &Environment::crypto_slh_dsa_shake_256s_string,
+     kPqcSlhDsaFlags},
 #endif
 };
 
@@ -67,6 +130,10 @@ const PqcAlgorithm* FindPqcAlgorithmByName(const char* name) {
     if (strcmp(name, alg.name) == 0) return &alg;
   }
   return nullptr;
+}
+
+bool HasPqcAlgorithmFlag(const PqcAlgorithm* alg, PqcAlgorithmFlag flag) {
+  return alg != nullptr && (alg->flags & flag) != 0;
 }
 
 bool TrySetEncodedKey(Environment* env,
@@ -92,9 +159,9 @@ bool ExportJwkPqcKey(Environment* env,
   CHECK(alg);
 
   if (key.GetKeyType() == kKeyTypePrivate) {
-    DataPointer priv_data =
-        alg->use_seed ? pkey.rawSeed() : pkey.rawPrivateKey();
-    if (alg->use_seed && !priv_data) {
+    const bool uses_seed = HasPqcAlgorithmFlag(alg, kPqcRawSeed);
+    DataPointer priv_data = uses_seed ? pkey.rawSeed() : pkey.rawPrivateKey();
+    if (uses_seed && !priv_data) {
       THROW_ERR_CRYPTO_OPERATION_FAILED(env,
                                         "key does not have an available seed");
       return false;
@@ -154,8 +221,9 @@ KeyObjectData ImportJWKPqcKey(Environment* env, Local<Object> jwk) {
         .data = priv.data<const unsigned char>(),
         .len = priv.size(),
     };
-    pkey = alg->use_seed ? EVPKeyPointer::NewRawSeed(alg->id, buf)
-                         : EVPKeyPointer::NewRawPrivate(alg->id, buf);
+    pkey = HasPqcAlgorithmFlag(alg, kPqcRawSeed)
+               ? EVPKeyPointer::NewRawSeed(alg->id, buf)
+               : EVPKeyPointer::NewRawPrivate(alg->id, buf);
   } else {
     ByteSource pub = ByteSource::FromEncodedString(env, pub_value.As<String>());
     pkey =
@@ -190,14 +258,19 @@ bool IsPqcKeyId(int id) {
   return FindPqcAlgorithmById(id) != nullptr;
 }
 
+bool IsPqcRawPrivateKeyId(int id) {
+  const PqcAlgorithm* alg = FindPqcAlgorithmById(id);
+  return HasPqcAlgorithmFlag(alg, kPqcRawPrivate);
+}
+
 bool IsPqcSeedKeyId(int id) {
   const PqcAlgorithm* alg = FindPqcAlgorithmById(id);
-  return alg != nullptr && alg->use_seed;
+  return HasPqcAlgorithmFlag(alg, kPqcRawSeed);
 }
 
 bool IsPqcSignatureKeyId(int id) {
   const PqcAlgorithm* alg = FindPqcAlgorithmById(id);
-  return alg != nullptr && alg->is_signature;
+  return HasPqcAlgorithmFlag(alg, kPqcSignature);
 }
 
 int GetPqcNidFromName(const char* name) {
@@ -205,6 +278,14 @@ int GetPqcNidFromName(const char* name) {
     if (StringEqualNoCase(name, alg.name)) return alg.id;
   }
   return NID_undef;
+}
+
+Local<Value> GetPqcAsymmetricKeyType(Environment* env, int id) {
+  const PqcAlgorithm* alg = FindPqcAlgorithmById(id);
+  if (alg == nullptr) return v8::Undefined(env->isolate());
+
+  Local<String> key_type = (env->*(alg->key_type))();
+  return key_type.As<Value>();
 }
 #endif
 }  // namespace crypto

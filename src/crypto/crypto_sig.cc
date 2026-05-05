@@ -238,9 +238,8 @@ bool UseP1363Encoding(const EVPKeyPointer& key, const DSASigEnc dsa_encoding) {
 }
 
 bool SupportsContextString(const EVPKeyPointer& key) {
-#if OPENSSL_VERSION_NUMBER < 0x3020000fL && !defined(OPENSSL_IS_BORINGSSL)
-  return false;
-#else
+  if (!OPENSSL_WITH_SIGNATURE_CONTEXT_STRING) return false;
+
   const int id = key.id();
 #if OPENSSL_WITH_PQC
   if (IsPqcSignatureKeyId(id)) return true;
@@ -249,7 +248,6 @@ bool SupportsContextString(const EVPKeyPointer& key) {
   if (id == EVP_PKEY_ED25519 || id == EVP_PKEY_ED448) return true;
 #endif
   return false;
-#endif
 }
 }  // namespace
 

@@ -19,7 +19,7 @@
 #include <openssl/core_names.h>
 #include <openssl/params.h>
 #include <openssl/provider.h>
-#if OPENSSL_VERSION_NUMBER >= 0x30200000L
+#if OPENSSL_WITH_ARGON2
 #include <openssl/thread.h>
 #endif
 #endif
@@ -36,8 +36,10 @@ constexpr static PQCMapping pqc_mappings[] = {
     {"ML-KEM-768", EVP_PKEY_ML_KEM_768},
     {"ML-KEM-1024", EVP_PKEY_ML_KEM_1024},
 
-#ifndef OPENSSL_IS_BORINGSSL
+#if OPENSSL_WITH_PQC_ML_KEM_512
     {"ML-KEM-512", EVP_PKEY_ML_KEM_512},
+#endif
+#if OPENSSL_WITH_PQC_SLH_DSA
     {"SLH-DSA-SHA2-128f", EVP_PKEY_SLH_DSA_SHA2_128F},
     {"SLH-DSA-SHA2-128s", EVP_PKEY_SLH_DSA_SHA2_128S},
     {"SLH-DSA-SHA2-192f", EVP_PKEY_SLH_DSA_SHA2_192F},
@@ -1935,8 +1937,7 @@ DataPointer pbkdf2(const Digest& md,
   return {};
 }
 
-#if OPENSSL_VERSION_NUMBER >= 0x30200000L
-#ifndef OPENSSL_NO_ARGON2
+#if OPENSSL_WITH_ARGON2
 DataPointer argon2(const Buffer<const char>& pass,
                    const Buffer<const unsigned char>& salt,
                    uint32_t lanes,
@@ -2028,7 +2029,6 @@ DataPointer argon2(const Buffer<const char>& pass,
 
   return {};
 }
-#endif
 #endif
 
 // ============================================================================
@@ -2189,7 +2189,7 @@ EVP_PKEY* EVPKeyPointer::release() {
 int EVPKeyPointer::id(const EVP_PKEY* key) {
   if (key == nullptr) return 0;
   int type = EVP_PKEY_id(key);
-#if OPENSSL_WITH_PQC && !defined(OPENSSL_IS_BORINGSSL)
+#if OPENSSL_WITH_OPENSSL_PQC
   // EVP_PKEY_id returns -1 when EVP_PKEY_* is only implemented in a provider
   // which is the case for all post-quantum NIST algorithms
   // one suggested way would be to use a chain of `EVP_PKEY_is_a`
@@ -2789,7 +2789,7 @@ bool EVPKeyPointer::isOneShotVariant() const {
     case EVP_PKEY_ML_DSA_44:
     case EVP_PKEY_ML_DSA_65:
     case EVP_PKEY_ML_DSA_87:
-#ifndef OPENSSL_IS_BORINGSSL
+#if OPENSSL_WITH_PQC_SLH_DSA
     case EVP_PKEY_SLH_DSA_SHA2_128F:
     case EVP_PKEY_SLH_DSA_SHA2_128S:
     case EVP_PKEY_SLH_DSA_SHA2_192F:
@@ -4677,7 +4677,7 @@ HMACCtxPointer HMACCtxPointer::New() {
   return HMACCtxPointer(HMAC_CTX_new());
 }
 
-#if OPENSSL_VERSION_MAJOR >= 3
+#if OPENSSL_WITH_KMAC
 EVPMacPointer::EVPMacPointer(EVP_MAC* mac) : mac_(mac) {}
 
 EVPMacPointer::EVPMacPointer(EVPMacPointer&& other) noexcept
@@ -4765,7 +4765,7 @@ EVPMacCtxPointer EVPMacCtxPointer::New(EVP_MAC* mac) {
   if (!mac) return EVPMacCtxPointer();
   return EVPMacCtxPointer(EVP_MAC_CTX_new(mac));
 }
-#endif  // OPENSSL_VERSION_MAJOR >= 3
+#endif  // OPENSSL_WITH_KMAC
 
 DataPointer hashDigest(const Buffer<const unsigned char>& buf,
                        const EVP_MD* md) {
@@ -4912,8 +4912,8 @@ const Digest Digest::FromName(const char* name) {
 
 // ============================================================================
 // KEM Implementation
-#if OPENSSL_VERSION_MAJOR >= 3 || defined(OPENSSL_IS_BORINGSSL)
-#if !defined(OPENSSL_IS_BORINGSSL) && OPENSSL_VERSION_NUMBER < 0x30500000L
+#if OPENSSL_WITH_KEM
+#if OPENSSL_WITH_KEM_OPERATION_PARAM
 bool KEM::SetOperationParameter(EVP_PKEY_CTX* ctx, const EVPKeyPointer& key) {
   const char* operation = nullptr;
 
@@ -4921,7 +4921,7 @@ bool KEM::SetOperationParameter(EVP_PKEY_CTX* ctx, const EVPKeyPointer& key) {
     case EVP_PKEY_RSA:
       operation = OSSL_KEM_PARAM_OPERATION_RSASVE;
       break;
-#if OPENSSL_VERSION_PREREQ(3, 2)
+#if OPENSSL_WITH_OPENSSL_DHKEM
     case EVP_PKEY_EC:
     case EVP_PKEY_X25519:
     case EVP_PKEY_X448:
@@ -4958,7 +4958,7 @@ std::optional<KEM::EncapsulateResult> KEM::Encapsulate(
     return std::nullopt;
   }
 
-#if !defined(OPENSSL_IS_BORINGSSL) && OPENSSL_VERSION_NUMBER < 0x30500000L
+#if OPENSSL_WITH_KEM_OPERATION_PARAM
   if (!SetOperationParameter(ctx.get(), public_key)) {
     return std::nullopt;
   }
@@ -4999,7 +4999,7 @@ DataPointer KEM::Decapsulate(const EVPKeyPointer& private_key,
     return {};
   }
 
-#if !defined(OPENSSL_IS_BORINGSSL) && OPENSSL_VERSION_NUMBER < 0x30500000L
+#if OPENSSL_WITH_KEM_OPERATION_PARAM
   if (!SetOperationParameter(ctx.get(), private_key)) {
     return {};
   }
@@ -5029,6 +5029,6 @@ DataPointer KEM::Decapsulate(const EVPKeyPointer& private_key,
   return shared_key;
 }
 
-#endif  // OPENSSL_VERSION_MAJOR >= 3
+#endif  // OPENSSL_WITH_KEM
 
 }  // namespace ncrypto

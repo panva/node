@@ -29,6 +29,8 @@ bool IsPqcSeedKeyId(int id);
 bool IsPqcSignatureKeyId(int id);
 // Returns the EVP_PKEY id for the given PQC algorithm name, or NID_undef.
 int GetPqcNidFromName(const char* name);
+// Returns the JS asymmetricKeyType string for a PQC id, or undefined.
+v8::Local<v8::Value> GetPqcAsymmetricKeyType(Environment* env, int id);
 #endif
 }  // namespace crypto
 }  // namespace node
