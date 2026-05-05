@@ -2100,69 +2100,99 @@ EVPKeyPointer EVPKeyPointer::NewRawPrivate(
 }
 
 #if OPENSSL_WITH_PQC
-EVPKeyPointer EVPKeyPointer::NewRawSeed(
-    int id, const Buffer<const unsigned char>& data) {
-  if (id == 0) return {};
+namespace {
+constexpr size_t kPqcMlDsaSeedSize = 32;
+constexpr size_t kPqcMlKemSeedSize = 64;
 
-#ifdef OPENSSL_IS_BORINGSSL
-  // BoringSSL exposes seed-based construction via EVP_PKEY_from_private_seed,
-  // which needs an |EVP_PKEY_ALG*| rather than a NID.
-  const EVP_PKEY_ALG* alg = nullptr;
+size_t GetPqcSeedSize(int id) {
   switch (id) {
     case EVP_PKEY_ML_DSA_44:
-      alg = EVP_pkey_ml_dsa_44();
-      break;
     case EVP_PKEY_ML_DSA_65:
-      alg = EVP_pkey_ml_dsa_65();
-      break;
     case EVP_PKEY_ML_DSA_87:
-      alg = EVP_pkey_ml_dsa_87();
-      break;
+      return kPqcMlDsaSeedSize;
+#if OPENSSL_WITH_PQC_ML_KEM_512
+    case EVP_PKEY_ML_KEM_512:
+#endif
     case EVP_PKEY_ML_KEM_768:
-      alg = EVP_pkey_ml_kem_768();
-      break;
     case EVP_PKEY_ML_KEM_1024:
-      alg = EVP_pkey_ml_kem_1024();
-      break;
+      return kPqcMlKemSeedSize;
     default:
-      return {};
+      unreachable();
   }
-  return EVPKeyPointer(EVP_PKEY_from_private_seed(alg, data.data, data.len));
+}
+
+#if OPENSSL_WITH_BORINGSSL_PQC
+const EVP_PKEY_ALG* GetPqcSeedAlg(int id) {
+  switch (id) {
+    case EVP_PKEY_ML_DSA_44:
+      return EVP_pkey_ml_dsa_44();
+    case EVP_PKEY_ML_DSA_65:
+      return EVP_pkey_ml_dsa_65();
+    case EVP_PKEY_ML_DSA_87:
+      return EVP_pkey_ml_dsa_87();
+    case EVP_PKEY_ML_KEM_768:
+      return EVP_pkey_ml_kem_768();
+    case EVP_PKEY_ML_KEM_1024:
+      return EVP_pkey_ml_kem_1024();
+    default:
+      unreachable();
+  }
+}
 #else
-  // ML-DSA and ML-KEM seeds use distinct OSSL_PARAM keys.
-  const char* param_name;
+const char* GetPqcSeedParamName(int id) {
   switch (id) {
     case EVP_PKEY_ML_DSA_44:
     case EVP_PKEY_ML_DSA_65:
     case EVP_PKEY_ML_DSA_87:
-      param_name = OSSL_PKEY_PARAM_ML_DSA_SEED;
-      break;
+      return OSSL_PKEY_PARAM_ML_DSA_SEED;
     case EVP_PKEY_ML_KEM_512:
     case EVP_PKEY_ML_KEM_768:
     case EVP_PKEY_ML_KEM_1024:
-      param_name = OSSL_PKEY_PARAM_ML_KEM_SEED;
-      break;
+      return OSSL_PKEY_PARAM_ML_KEM_SEED;
     default:
-      return {};
+      unreachable();
   }
+}
+#endif
 
+EVPKeyPointer NewPqcKeyFromSeed(int id,
+                                const Buffer<const unsigned char>& data) {
+#if OPENSSL_WITH_BORINGSSL_PQC
+  return EVPKeyPointer(
+      EVP_PKEY_from_private_seed(GetPqcSeedAlg(id), data.data, data.len));
+#else
   OSSL_PARAM params[] = {
-      OSSL_PARAM_construct_octet_string(
-          param_name, const_cast<unsigned char*>(data.data), data.len),
+      OSSL_PARAM_construct_octet_string(GetPqcSeedParamName(id),
+                                        const_cast<unsigned char*>(data.data),
+                                        data.len),
       OSSL_PARAM_END};
 
-  EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(id, nullptr);
-  if (ctx == nullptr) return {};
+  auto ctx = EVPKeyCtxPointer::NewFromID(id);
+  if (!ctx) return {};
 
   EVP_PKEY* pkey = nullptr;
-  if (ctx == nullptr || EVP_PKEY_fromdata_init(ctx) <= 0 ||
-      EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_KEYPAIR, params) <= 0) {
-    EVP_PKEY_CTX_free(ctx);
+  if (EVP_PKEY_fromdata_init(ctx.get()) <= 0 ||
+      EVP_PKEY_fromdata(ctx.get(), &pkey, EVP_PKEY_KEYPAIR, params) <= 0) {
     return {};
   }
-
   return EVPKeyPointer(pkey);
-#endif  // OPENSSL_IS_BORINGSSL
+#endif
+}
+
+bool GetPqcSeed(EVP_PKEY* pkey, int id, const Buffer<unsigned char>& out) {
+  size_t len = out.len;
+#if OPENSSL_WITH_BORINGSSL_PQC
+  return EVP_PKEY_get_private_seed(pkey, out.data, &len) == 1;
+#else
+  return EVP_PKEY_get_octet_string_param(
+             pkey, GetPqcSeedParamName(id), out.data, out.len, &len) == 1;
+#endif
+}
+}  // namespace
+
+EVPKeyPointer EVPKeyPointer::NewRawSeed(
+    int id, const Buffer<const unsigned char>& data) {
+  return NewPqcKeyFromSeed(id, data);
 }
 #endif
 
@@ -2290,62 +2320,14 @@ DataPointer EVPKeyPointer::rawPublicKey() const {
 DataPointer EVPKeyPointer::rawSeed() const {
   if (!pkey_) return {};
 
-#ifdef OPENSSL_IS_BORINGSSL
-  size_t seed_len;
-  switch (id()) {
-    case EVP_PKEY_ML_DSA_44:
-    case EVP_PKEY_ML_DSA_65:
-    case EVP_PKEY_ML_DSA_87:
-      seed_len = 32;  // ML-DSA uses 32-byte seeds
-      break;
-    case EVP_PKEY_ML_KEM_768:
-    case EVP_PKEY_ML_KEM_1024:
-      seed_len = 64;  // ML-KEM uses 64-byte seeds
-      break;
-    default:
-      return {};
-  }
+  const size_t seed_len = GetPqcSeedSize(id());
 
   if (auto data = DataPointer::Alloc(seed_len)) {
     const Buffer<unsigned char> buf = data;
-    size_t len = data.size();
-    if (EVP_PKEY_get_private_seed(get(), buf.data, &len) != 1) return {};
+    if (!GetPqcSeed(get(), id(), buf)) return {};
     return data;
   }
   return {};
-#else
-  // Determine seed length and parameter name based on key type
-  size_t seed_len;
-  const char* param_name;
-
-  switch (id()) {
-    case EVP_PKEY_ML_DSA_44:
-    case EVP_PKEY_ML_DSA_65:
-    case EVP_PKEY_ML_DSA_87:
-      seed_len = 32;  // ML-DSA uses 32-byte seeds
-      param_name = OSSL_PKEY_PARAM_ML_DSA_SEED;
-      break;
-    case EVP_PKEY_ML_KEM_512:
-    case EVP_PKEY_ML_KEM_768:
-    case EVP_PKEY_ML_KEM_1024:
-      seed_len = 64;  // ML-KEM uses 64-byte seeds
-      param_name = OSSL_PKEY_PARAM_ML_KEM_SEED;
-      break;
-    default:
-      unreachable();
-  }
-
-  if (auto data = DataPointer::Alloc(seed_len)) {
-    const Buffer<unsigned char> buf = data;
-    size_t len = data.size();
-
-    if (EVP_PKEY_get_octet_string_param(
-            get(), param_name, buf.data, len, &seed_len) != 1)
-      return {};
-    return data;
-  }
-  return {};
-#endif  // OPENSSL_IS_BORINGSSL
 }
 #endif
 
