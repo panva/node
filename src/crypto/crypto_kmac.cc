@@ -1,10 +1,15 @@
 #include "crypto/crypto_kmac.h"
 #include "async_wrap-inl.h"
+#include "base_object-inl.h"
+#include "env-inl.h"
+#include "memory_tracker-inl.h"
 #include "node_internals.h"
+#include "string_bytes.h"
 #include "threadpoolwork-inl.h"
 
 #if OPENSSL_VERSION_MAJOR >= 3
 #include <openssl/core_names.h>
+#include <openssl/evp.h>
 #include <openssl/params.h>
 #include "crypto/crypto_keys.h"
 #include "crypto/crypto_sig.h"
@@ -17,6 +22,9 @@ using ncrypto::EVPMacPointer;
 using node::Utf8Value;
 using v8::Boolean;
 using v8::FunctionCallbackInfo;
+using v8::FunctionTemplate;
+using v8::HandleScope;
+using v8::Isolate;
 using v8::JustVoid;
 using v8::Local;
 using v8::Maybe;
@@ -25,6 +33,165 @@ using v8::Nothing;
 using v8::Object;
 using v8::Uint32;
 using v8::Value;
+
+Kmac::Kmac(Environment* env, Local<Object> wrap)
+    : BaseObject(env, wrap) {
+  MakeWeak();
+}
+
+void Kmac::MemoryInfo(MemoryTracker* tracker) const {
+  tracker->TrackFieldWithSize("context", ctx_ ? 1 : 0);
+}
+
+void Kmac::Initialize(Environment* env, Local<Object> target) {
+  Isolate* isolate = env->isolate();
+  Local<FunctionTemplate> t = NewFunctionTemplate(isolate, New);
+
+  t->InstanceTemplate()->SetInternalFieldCount(Kmac::kInternalFieldCount);
+
+  SetProtoMethod(isolate, t, "init", KmacInit);
+  SetProtoMethod(isolate, t, "update", KmacUpdate);
+  SetProtoMethod(isolate, t, "digest", KmacDigest);
+
+  SetConstructorFunction(env->context(), target, "Kmac", t);
+
+  KmacJob::Initialize(env, target);
+}
+
+void Kmac::RegisterExternalReferences(ExternalReferenceRegistry* registry) {
+  registry->Register(New);
+  registry->Register(KmacInit);
+  registry->Register(KmacUpdate);
+  registry->Register(KmacDigest);
+  KmacJob::RegisterExternalReferences(registry);
+}
+
+void Kmac::New(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+  new Kmac(env, args.This());
+}
+
+void Kmac::KmacInit(const char* algorithm,
+                    const char* key,
+                    size_t key_len,
+                    Local<Value> output_length,
+                    Local<Value> custom) {
+  HandleScope scope(env()->isolate());
+
+  const char* openssl_algorithm;
+  if (strcmp(algorithm, OSSL_MAC_NAME_KMAC128) == 0) {
+    openssl_algorithm = OSSL_MAC_NAME_KMAC128;
+  } else if (strcmp(algorithm, OSSL_MAC_NAME_KMAC256) == 0) {
+    openssl_algorithm = OSSL_MAC_NAME_KMAC256;
+  } else {
+    return THROW_ERR_CRYPTO_UNSUPPORTED_OPERATION(env());
+  }
+
+  auto mac = EVPMacPointer::Fetch(openssl_algorithm);
+  if (!mac) [[unlikely]] {
+    return ThrowCryptoError(env(), ERR_get_error(), "KMAC not supported");
+  }
+
+  ctx_ = EVPMacCtxPointer::New(mac.get());
+  if (!ctx_) [[unlikely]] {
+    return ThrowCryptoError(env(), ERR_get_error(), "KMAC context error");
+  }
+
+  OSSL_PARAM params[3];
+  size_t params_count = 0;
+  size_t outlen = 0;
+  if (!output_length->IsUndefined()) {
+    CHECK(output_length->IsUint32());
+    outlen = output_length.As<Uint32>()->Value();
+    params[params_count++] =
+        OSSL_PARAM_construct_size_t(OSSL_MAC_PARAM_SIZE, &outlen);
+  }
+
+  ArrayBufferOrViewContents<char> custom_buf(
+      custom->IsUndefined() ? Local<Value>() : custom);
+  if (!custom->IsUndefined()) {
+    if (!custom_buf.CheckSizeInt32()) [[unlikely]] {
+      ctx_.reset();
+      return THROW_ERR_OUT_OF_RANGE(env(), "custom is too big");
+    }
+    params[params_count++] = OSSL_PARAM_construct_octet_string(
+        OSSL_MAC_PARAM_CUSTOM,
+        const_cast<char*>(custom_buf.data()),
+        custom_buf.size());
+  }
+
+  params[params_count] = OSSL_PARAM_construct_end();
+
+  if (!ctx_.init(ncrypto::Buffer<const void>(key, key_len), params)) {
+    ctx_.reset();
+    return ThrowCryptoError(
+        env(), ERR_get_error(), "KMAC initialization error");
+  }
+
+  length_ = !output_length->IsUndefined()
+      ? outlen
+      : EVP_MAC_CTX_get_mac_size(ctx_.get());
+}
+
+void Kmac::KmacInit(const FunctionCallbackInfo<Value>& args) {
+  Kmac* kmac;
+  ASSIGN_OR_RETURN_UNWRAP(&kmac, args.This());
+  Environment* env = kmac->env();
+
+  const node::Utf8Value algorithm(env->isolate(), args[0]);
+  ByteSource key = ByteSource::FromSecretKeyBytes(env, args[1]);
+  kmac->KmacInit(*algorithm, key.data<char>(), key.size(), args[2], args[3]);
+}
+
+bool Kmac::KmacUpdate(const char* data, size_t len) {
+  ncrypto::Buffer<const void> buf{
+      .data = data,
+      .len = len,
+  };
+  return ctx_.update(buf);
+}
+
+void Kmac::KmacUpdate(const FunctionCallbackInfo<Value>& args) {
+  Decode<Kmac>(args, [](Kmac* kmac, const FunctionCallbackInfo<Value>& args,
+                        const char* data, size_t size) {
+    Environment* env = Environment::GetCurrent(args);
+    if (size > INT_MAX) [[unlikely]]
+      return THROW_ERR_OUT_OF_RANGE(env, "data is too long");
+    bool r = kmac->KmacUpdate(data, size);
+    args.GetReturnValue().Set(r);
+  });
+}
+
+void Kmac::KmacDigest(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+
+  Kmac* kmac;
+  ASSIGN_OR_RETURN_UNWRAP(&kmac, args.This());
+
+  enum encoding encoding = BUFFER;
+  if (args.Length() >= 1) {
+    encoding = ParseEncoding(env->isolate(), args[0], BUFFER);
+  }
+
+  ByteSource out;
+  if (kmac->ctx_ && kmac->length_ > 0) {
+    auto result = kmac->ctx_.final(kmac->length_);
+    if (!result) [[unlikely]] {
+      kmac->ctx_.reset();
+      return ThrowCryptoError(env, ERR_get_error(), "Failed to finalize KMAC");
+    }
+    DCHECK(!result.isSecure());
+    out = ByteSource::Allocated(result.release());
+  }
+  kmac->ctx_.reset();
+
+  const char* data = out.size() == 0 ? "" : out.data<char>();
+  Local<Value> ret;
+  if (StringBytes::Encode(env->isolate(), data, out.size(), encoding)
+          .ToLocal(&ret)) {
+    args.GetReturnValue().Set(ret);
+  }
+}
 
 KmacConfig::KmacConfig(KmacConfig&& other) noexcept
     : job_mode(other.job_mode),
@@ -208,14 +375,6 @@ MaybeLocal<Value> KmacTraits::EncodeOutput(Environment* env,
                   out->data(), params.signature.data(), out->size()) == 0);
   }
   UNREACHABLE();
-}
-
-void Kmac::Initialize(Environment* env, Local<Object> target) {
-  KmacJob::Initialize(env, target);
-}
-
-void Kmac::RegisterExternalReferences(ExternalReferenceRegistry* registry) {
-  KmacJob::RegisterExternalReferences(registry);
 }
 
 }  // namespace node::crypto

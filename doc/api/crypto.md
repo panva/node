@@ -2220,6 +2220,54 @@ encoding of `'utf8'` is enforced. If `data` is a [`Buffer`][], `TypedArray`, or
 
 This can be called many times with new data as it is streamed.
 
+## Class: `Kmac`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* Extends: {stream.Transform}
+
+The `Kmac` class is a utility for creating KMAC message authentication
+codes. It can be used as a stream, or by using the [`kmac.update()`][]
+and [`kmac.digest()`][] methods.
+
+The [`crypto.createKmac()`][] method is used to create `Kmac` instances.
+`Kmac` objects are not to be created directly using the `new` keyword.
+
+### `kmac.digest([encoding])`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* `encoding` {string} The [encoding][] of the return value.
+* Returns: {Buffer | string}
+
+Calculates the KMAC digest of all of the data passed using
+[`kmac.update()`][]. If `encoding` is provided a string is returned;
+otherwise a [`Buffer`][] is returned.
+
+The `Kmac` object can not be used again after `kmac.digest()` has been
+called. Multiple calls to `kmac.digest()` will result in an error being
+thrown.
+
+### `kmac.update(data[, inputEncoding])`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* `data` {string|Buffer|TypedArray|DataView}
+* `inputEncoding` {string} The [encoding][] of the `data` string.
+
+Updates the `Kmac` content with the given `data`, the encoding of which
+is given in `inputEncoding`. If `encoding` is not provided, and the
+`data` is a string, an encoding of `'utf8'` is enforced. If `data` is a
+[`Buffer`][], `TypedArray`, or `DataView`, then `inputEncoding` is ignored.
+
+This can be called many times with new data as it is streamed.
+
 ## Class: `KeyObject`
 
 <!-- YAML
@@ -3925,6 +3973,65 @@ input.on('readable', () => {
     console.log(`${hmac.digest('hex')} ${filename}`);
   }
 });
+```
+
+### `crypto.createKmac(algorithm, key[, options])`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* `algorithm` {string} Must be `'kmac-128'` or `'kmac-256'`.
+* `key` {ArrayBuffer|Buffer|TypedArray|DataView|KeyObject}
+* `options` {Object} [`stream.transform` options][]
+  * `custom` {ArrayBuffer|Buffer|TypedArray|DataView} Optional customization
+    data. Must not exceed 512 bytes.
+  * `outputLength` {number} Optional output length in bytes.
+* Returns: {Kmac}
+
+Creates and returns a `Kmac` object that uses the given `algorithm` and `key`.
+Optional `options` argument controls stream behavior and KMAC parameters.
+
+KMAC support requires OpenSSL 3.0 or later. If the current OpenSSL version does
+not support KMAC, this method throws `ERR_CRYPTO_KMAC_NOT_SUPPORTED`.
+
+The `key` is the KMAC key used to generate the message authentication code.
+If it is a [`KeyObject`][], its type must be `secret`. The key length must be
+between 4 and 512 bytes.
+
+If `options.outputLength` is omitted, OpenSSL's KMAC defaults apply: 32 bytes
+for `'kmac-128'` and 64 bytes for `'kmac-256'`.
+
+If `options.custom` is omitted, OpenSSL's empty customization default applies.
+
+Example: generating the KMAC-128 of a message
+
+```mjs
+const {
+  createKmac,
+} = await import('node:crypto');
+
+const key = new Uint8Array(32);
+const kmac = createKmac('kmac-128', key, {
+  custom: new TextEncoder().encode('example'),
+});
+
+kmac.update('some data to authenticate');
+console.log(kmac.digest('hex'));
+```
+
+```cjs
+const {
+  createKmac,
+} = require('node:crypto');
+
+const key = new Uint8Array(32);
+const kmac = createKmac('kmac-128', key, {
+  custom: Buffer.from('example'),
+});
+
+kmac.update('some data to authenticate');
+console.log(kmac.digest('hex'));
 ```
 
 ### `crypto.createPrivateKey(key)`
@@ -6927,6 +7034,7 @@ See the [list of SSL OP Flags][] for details.
 [`crypto.createECDH()`]: #cryptocreateecdhcurvename
 [`crypto.createHash()`]: #cryptocreatehashalgorithm-options
 [`crypto.createHmac()`]: #cryptocreatehmacalgorithm-key-options
+[`crypto.createKmac()`]: #cryptocreatekmacalgorithm-key-options
 [`crypto.createPrivateKey()`]: #cryptocreateprivatekeykey
 [`crypto.createPublicKey()`]: #cryptocreatepublickeykey
 [`crypto.createSecretKey()`]: #cryptocreatesecretkeykey-encoding
@@ -6960,6 +7068,8 @@ See the [list of SSL OP Flags][] for details.
 [`hmac.update()`]: #hmacupdatedata-inputencoding
 [`import()`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/import
 [`keyObject.export()`]: #keyobjectexportoptions
+[`kmac.digest()`]: #kmacdigestencoding
+[`kmac.update()`]: #kmacupdatedata-inputencoding
 [`postMessage()`]: worker_threads.md#portpostmessagevalue-transferlist
 [`sign.sign()`]: #signsignprivatekey-outputencoding
 [`sign.update()`]: #signupdatedata-inputencoding

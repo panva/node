@@ -4,9 +4,12 @@
 #if defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
 
 #include <string>
+#include "base_object.h"
 #include "crypto/crypto_keys.h"
 #include "crypto/crypto_sig.h"
 #include "crypto/crypto_util.h"
+#include "env.h"
+#include "memory_tracker.h"
 
 namespace node::crypto {
 
@@ -14,6 +17,35 @@ namespace node::crypto {
 #if OPENSSL_VERSION_MAJOR >= 3
 
 enum class KmacVariant { KMAC128, KMAC256 };
+
+class Kmac : public BaseObject {
+ public:
+  static void Initialize(Environment* env, v8::Local<v8::Object> target);
+  static void RegisterExternalReferences(ExternalReferenceRegistry* registry);
+
+  void MemoryInfo(MemoryTracker* tracker) const override;
+  SET_MEMORY_INFO_NAME(Kmac)
+  SET_SELF_SIZE(Kmac)
+
+ protected:
+  void KmacInit(const char* algorithm,
+                const char* key,
+                size_t key_len,
+                v8::Local<v8::Value> output_length,
+                v8::Local<v8::Value> custom);
+  bool KmacUpdate(const char* data, size_t len);
+
+  static void New(const v8::FunctionCallbackInfo<v8::Value>& args);
+  static void KmacInit(const v8::FunctionCallbackInfo<v8::Value>& args);
+  static void KmacUpdate(const v8::FunctionCallbackInfo<v8::Value>& args);
+  static void KmacDigest(const v8::FunctionCallbackInfo<v8::Value>& args);
+
+  Kmac(Environment* env, v8::Local<v8::Object> wrap);
+
+ private:
+  ncrypto::EVPMacCtxPointer ctx_;
+  size_t length_ = 0;
+};
 
 struct KmacConfig final : public MemoryRetainer {
   CryptoJobMode job_mode;
@@ -60,11 +92,6 @@ struct KmacTraits final {
 };
 
 using KmacJob = DeriveBitsJob<KmacTraits>;
-
-namespace Kmac {
-void Initialize(Environment* env, v8::Local<v8::Object> target);
-void RegisterExternalReferences(ExternalReferenceRegistry* registry);
-}  // namespace Kmac
 
 #else
 // If there is no KMAC support, provide empty namespace functions.
