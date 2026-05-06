@@ -239,7 +239,7 @@ The valid range is `0` to `65535`.
 ### `endpoint.setSNIContexts(entries[, options])`
 
 <!-- YAML
-added: REPLACEME
+added: v26.1.0
 -->
 
 * `entries` {object} An object mapping host names to TLS identity options.
@@ -2024,7 +2024,7 @@ added: v23.8.0
 #### `sessionOptions.alpn`
 
 <!-- YAML
-added: REPLACEME
+added: v26.1.0
 -->
 
 * Type: {string} (client) | {string\[]} (server)
@@ -2187,7 +2187,6 @@ can be used with tools such as Wireshark to decrypt captured QUIC traffic.
 added: v23.8.0
 changes:
   - version:
-     - v26.0.0
      - v25.9.0
      - v24.15.0
     pr-url: https://github.com/nodejs/node/pull/62335
@@ -2354,7 +2353,7 @@ The peer server name to target (SNI). Defaults to `'localhost'`.
 #### `sessionOptions.sni` (server only)
 
 <!-- YAML
-added: REPLACEME
+added: v26.1.0
 -->
 
 * Type: {Object}

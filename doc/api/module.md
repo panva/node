@@ -179,17 +179,12 @@ added:
   - v20.6.0
   - v18.19.0
 deprecated:
- - v26.0.0
  - v25.9.0
  - v24.15.0
 changes:
   - version: v26.0.0
     pr-url: https://github.com/nodejs/node/pull/62401
     description: Runtime deprecation (DEP0205).
-  - version: v25.9.0
-    pr-url: https://github.com/nodejs/node/pull/62395
-    description: Documentation-only deprecation (DEP0205). Use
-                 `module.registerHooks()` instead.
   - version:
     - v23.6.1
     - v22.13.1

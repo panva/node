@@ -740,7 +740,6 @@ This feature is not available in [`Worker`][] threads.
 
 <!-- YAML
 added:
- - v26.0.0
  - v25.9.0
 -->
 
@@ -1738,7 +1737,7 @@ added:
   - v23.11.0
   - v22.15.0
 changes:
-  - version: REPLACEME
+  - version: v26.1.0
     pr-url: https://github.com/nodejs/node/pull/62878
     description: A failed `execve(2)` system call now throws an exception
                  instead of aborting the process. Native `AtExit`
@@ -4080,7 +4079,6 @@ This implies calling `module.setSourceMapsSupport()` with an option
 added: v9.3.0
 changes:
   - version:
-     - v26.0.0
      - v25.9.0
     pr-url: https://github.com/nodejs/node/pull/61227
     description: Use `process.addUncaughtExceptionCaptureCallback()` to

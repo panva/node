@@ -194,7 +194,7 @@ directly through the process arguments.
 ### `--allow-ffi`
 
 <!-- YAML
-added: REPLACEME
+added: v26.1.0
 -->
 
 > Stability: 1.1 - Active development
@@ -1225,7 +1225,7 @@ Enable exposition of [EventSource Web API][] on the global scope.
 ### `--experimental-ffi`
 
 <!-- YAML
-added: REPLACEME
+added: v26.1.0
 -->
 
 > Stability: 1 - Experimental
@@ -1365,7 +1365,6 @@ Enable experimental support for storage inspection
 
 <!-- YAML
 added:
- - v26.0.0
  - v25.9.0
 -->
 
@@ -2877,7 +2876,7 @@ option set. This flag is not necessary when test isolation is disabled.
 ### `--test-random-seed`
 
 <!-- YAML
-added: REPLACEME
+added: v26.1.0
 -->
 
 Set the seed used to randomize test execution order. This applies to both test
@@ -2891,7 +2890,7 @@ This flag cannot be used with `--watch` or `--test-rerun-failures`.
 ### `--test-randomize`
 
 <!-- YAML
-added: REPLACEME
+added: v26.1.0
 -->
 
 Randomize test execution order. This applies to both test file execution order
