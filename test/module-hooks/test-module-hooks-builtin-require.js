@@ -10,11 +10,21 @@ const common = require('../common');
 const assert = require('assert');
 const { registerHooks } = require('module');
 
+let hasHPKE = false;
+if (common.hasCrypto) {
+  const { hasOpenSSL } = require('../common/crypto');
+  hasHPKE = hasOpenSSL(3, 2);
+}
+
 const schemelessBlockList = new Set([
   'sea',
   'test',
   'test/reporters',
 ]);
+
+if (hasHPKE) {
+  schemelessBlockList.add('hpke');
+}
 
 if (common.hasSQLite) {
   schemelessBlockList.add('sqlite');

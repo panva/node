@@ -116,45 +116,63 @@ BuiltinLoader::BuiltinCategories BuiltinLoader::GetBuiltinCategories() const {
     "internal/main/"
   };
 
-  builtin_categories.cannot_be_required = std::set<std::string> {
+  builtin_categories.cannot_be_required = std::set<std::string>{
 #if !HAVE_INSPECTOR
-    "inspector", "inspector/promises", "internal/util/inspector",
-        "internal/inspector/network", "internal/inspector/network_http",
-        "internal/inspector/network_http2", "internal/inspector/network_undici",
-        "internal/inspector_async_hook", "internal/inspector_network_tracking",
-        "internal/inspector/webstorage",
+      "inspector",
+      "inspector/promises",
+      "internal/util/inspector",
+      "internal/inspector/network",
+      "internal/inspector/network_http",
+      "internal/inspector/network_http2",
+      "internal/inspector/network_undici",
+      "internal/inspector_async_hook",
+      "internal/inspector_network_tracking",
+      "internal/inspector/webstorage",
 #endif  // !HAVE_INSPECTOR
 
 #if !NODE_USE_V8_PLATFORM || !defined(NODE_HAVE_I18N_SUPPORT)
-        "trace_events",
+      "trace_events",
 #endif  // !NODE_USE_V8_PLATFORM || !defined(NODE_HAVE_I18N_SUPPORT)
 
 #if !HAVE_OPENSSL
-        "crypto", "crypto/promises", "https", "http2", "tls", "_tls_common",
-        "_tls_wrap", "internal/tls/parse-cert-string", "internal/tls/common",
-        "internal/tls/wrap", "internal/tls/secure-context",
-        "internal/http2/core", "internal/http2/compat",
-        "internal/streams/lazy_transform",
+      "crypto",
+      "hpke",
+      "crypto/promises",
+      "https",
+      "http2",
+      "tls",
+      "_tls_common",
+      "_tls_wrap",
+      "internal/tls/parse-cert-string",
+      "internal/tls/common",
+      "internal/tls/wrap",
+      "internal/tls/secure-context",
+      "internal/http2/core",
+      "internal/http2/compat",
+      "internal/streams/lazy_transform",
 #endif  // !HAVE_OPENSSL
 #ifndef OPENSSL_NO_QUIC
-        "internal/quic/quic", "internal/quic/symbols", "internal/quic/stats",
-        "internal/quic/state",
+      "internal/quic/quic",
+      "internal/quic/symbols",
+      "internal/quic/stats",
+      "internal/quic/state",
 #endif  // !OPENSSL_NO_QUIC
 #if !HAVE_FFI
-        "internal/ffi-shared-buffer",
+      "internal/ffi-shared-buffer",
 #endif                  // !HAVE_FFI
-        "ffi",          // Experimental.
-        "quic",         // Experimental.
-        "sqlite",       // Experimental.
-        "stream/iter",  // Experimental.
-        "sys",          // Deprecated.
-        "wasi",         // Experimental.
-        "zlib/iter",    // Experimental.
+      "ffi",            // Experimental.
+      "quic",           // Experimental.
+      "sqlite",         // Experimental.
+      "stream/iter",    // Experimental.
+      "sys",            // Deprecated.
+      "wasi",           // Experimental.
+      "zlib/iter",      // Experimental.
 #if !HAVE_SQLITE
-        "internal/webstorage",  // Experimental.
-        "internal/inspector/webstorage",
+      "internal/webstorage",  // Experimental.
+      "internal/inspector/webstorage",
 #endif
-        "internal/test/binding", "internal/v8_prof_polyfill",
+      "internal/test/binding",
+      "internal/v8_prof_polyfill",
   };
 
   auto source = source_.read();

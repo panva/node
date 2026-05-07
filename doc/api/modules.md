@@ -533,6 +533,7 @@ modules from having a conflict with user land packages that already have
 taken the name. Currently the built-in modules that requires the `node:` prefix are:
 
 * [`node:ffi`][]
+* [`node:hpke`][]
 * [`node:sea`][]
 * [`node:sqlite`][]
 * [`node:test`][]
@@ -1285,6 +1286,7 @@ This section was moved to
 [`module` core module]: module.md
 [`module` object]: #the-module-object
 [`node:ffi`]: ffi.md
+[`node:hpke`]: hpke.md
 [`node:sea`]: single-executable-applications.md#single-executable-application-api
 [`node:sqlite`]: sqlite.md
 [`node:test/reporters`]: test.md#test-reporters

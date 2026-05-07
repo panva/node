@@ -30,6 +30,7 @@
 * [File system](fs.md)
 * [FFI](ffi.md)
 * [Globals](globals.md)
+* [HPKE](hpke.md)
 * [HTTP](http.md)
 * [HTTP/2](http2.md)
 * [HTTPS](https.md)

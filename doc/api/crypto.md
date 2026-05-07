@@ -4943,6 +4943,18 @@ const base64 = 'Tm9kZS5qcw==';
 console.log(crypto.hash('sha1', Buffer.from(base64, 'base64'), 'buffer'));
 ```
 
+### `crypto.hpke`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* Type: {Object}
+
+A convenient alias for the [`node:hpke`][] module.
+
+See the [HPKE documentation][] for details.
+
 ### `crypto.hkdf(digest, ikm, salt, info, keylen, callback)`
 
 <!-- YAML
@@ -6889,6 +6901,7 @@ See the [list of SSL OP Flags][] for details.
 [Crypto constants]: #crypto-constants
 [FIPS module configuration file]: https://www.openssl.org/docs/man3.0/man5/fips_config.html
 [FIPS provider from OpenSSL 3]: https://www.openssl.org/docs/man3.0/man7/crypto.html#FIPS-provider
+[HPKE documentation]: hpke.md
 [HTML 5.2]: https://www.w3.org/TR/html52/changes.html#features-removed
 [JWK]: https://tools.ietf.org/html/rfc7517
 [Key usages]: webcrypto.md#cryptokeyusages
@@ -6960,6 +6973,7 @@ See the [list of SSL OP Flags][] for details.
 [`hmac.update()`]: #hmacupdatedata-inputencoding
 [`import()`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/import
 [`keyObject.export()`]: #keyobjectexportoptions
+[`node:hpke`]: hpke.md
 [`postMessage()`]: worker_threads.md#portpostmessagevalue-transferlist
 [`sign.sign()`]: #signsignprivatekey-outputencoding
 [`sign.update()`]: #signupdatedata-inputencoding

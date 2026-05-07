@@ -936,6 +936,12 @@ be called no more than one time per instance of a `Hash` object.
 
 [`hash.update()`][] failed for any reason. This should rarely, if ever, happen.
 
+<a id="ERR_CRYPTO_HPKE_NOT_SUPPORTED"></a>
+
+### `ERR_CRYPTO_HPKE_NOT_SUPPORTED`
+
+Attempted to load HPKE while Node.js was not compiled with HPKE support.
+
 <a id="ERR_CRYPTO_INCOMPATIBLE_KEY"></a>
 
 ### `ERR_CRYPTO_INCOMPATIBLE_KEY`

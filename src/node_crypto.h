@@ -40,6 +40,7 @@
 #include "crypto/crypto_hash.h"
 #include "crypto/crypto_hkdf.h"
 #include "crypto/crypto_hmac.h"
+#include "crypto/crypto_hpke.h"
 #if OPENSSL_WITH_KEM
 #include "crypto/crypto_kem.h"
 #endif

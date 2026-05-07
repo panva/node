@@ -67,11 +67,17 @@ namespace crypto {
 #define ARGON2_NAMESPACE_LIST(V)
 #endif  // OPENSSL_WITH_ARGON2
 
+#if OPENSSL_WITH_HPKE
+#define HPKE_NAMESPACE_LIST(V) V(HPKE)
+#else
+#define HPKE_NAMESPACE_LIST(V)
+#endif  // OPENSSL_WITH_HPKE
+
 #if OPENSSL_WITH_KEM
 #define KEM_NAMESPACE_LIST(V) V(KEM)
 #else
 #define KEM_NAMESPACE_LIST(V)
-#endif
+#endif  // OPENSSL_WITH_KEM
 
 #if OPENSSL_WITH_KMAC
 #define KMAC_NAMESPACE_LIST(V) V(Kmac)
@@ -90,6 +96,7 @@ namespace crypto {
 #define CRYPTO_NAMESPACE_LIST(V)                                               \
   CRYPTO_NAMESPACE_LIST_BASE(V)                                                \
   ARGON2_NAMESPACE_LIST(V)                                                     \
+  HPKE_NAMESPACE_LIST(V)                                                       \
   KEM_NAMESPACE_LIST(V)                                                        \
   KMAC_NAMESPACE_LIST(V)                                                       \
   SCRYPT_NAMESPACE_LIST(V)                                                     \

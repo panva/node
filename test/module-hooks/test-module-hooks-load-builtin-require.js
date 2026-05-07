@@ -4,6 +4,12 @@ const common = require('../common');
 const assert = require('assert');
 const { registerHooks } = require('module');
 
+let hasHPKE = false;
+if (common.hasCrypto) {
+  const { hasOpenSSL } = require('../common/crypto');
+  hasHPKE = hasOpenSSL(3, 2);
+}
+
 // This tests that required builtins get null as source from default
 // step, and the source returned are ignored.
 // TODO(joyeecheung): this is to align with the module.register() behavior
@@ -39,6 +45,10 @@ const schemelessBlockList = new Set([
   'test',
   'test/reporters',
 ]);
+
+if (hasHPKE) {
+  schemelessBlockList.add('hpke');
+}
 
 if (common.hasSQLite) {
   schemelessBlockList.add('sqlite');
