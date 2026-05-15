@@ -6,10 +6,12 @@ const pqc = hasOpenSSL(3, 5);
 const argon2 = hasOpenSSL(3, 2);
 const shake128 = crypto.getHashes().includes('shake128');
 const shake256 = crypto.getHashes().includes('shake256');
+const sha3 = crypto.getHashes().includes('sha3-256');
 const chacha = crypto.getCiphers().includes('chacha20-poly1305');
 const ocb = hasOpenSSL(3);
 const kmac = hasOpenSSL(3);
 const boringSSL = process.features.openssl_is_boringssl;
+const mlkemX25519 = pqc && (!boringSSL || (sha3 && shake256));
 
 const { subtle } = globalThis.crypto;
 const X25519 = await subtle.generateKey('X25519', false, ['deriveBits', 'deriveKey']);
@@ -78,6 +80,7 @@ export const vectors = {
     [pqc, 'ML-KEM-512'],
     [pqc, 'ML-KEM-768'],
     [pqc, 'ML-KEM-1024'],
+    [mlkemX25519, 'MLKEM768-X25519'],
     [chacha, 'ChaCha20-Poly1305'],
     [ocb, { name: 'AES-OCB', length: 128 }],
     [false, 'Argon2d'],
@@ -99,6 +102,7 @@ export const vectors = {
     [pqc, 'ML-KEM-512'],
     [pqc, 'ML-KEM-768'],
     [pqc, 'ML-KEM-1024'],
+    [mlkemX25519, 'MLKEM768-X25519'],
     [chacha, 'ChaCha20-Poly1305'],
     [ocb, { name: 'AES-OCB', length: 128 }],
     [argon2, 'Argon2d'],
@@ -120,6 +124,7 @@ export const vectors = {
     [pqc, 'ML-KEM-512'],
     [pqc, 'ML-KEM-768'],
     [pqc, 'ML-KEM-1024'],
+    [mlkemX25519, 'MLKEM768-X25519'],
     [chacha, 'ChaCha20-Poly1305'],
     [ocb, 'AES-OCB'],
     [false, 'Argon2d'],
@@ -144,6 +149,7 @@ export const vectors = {
     [pqc, 'ML-KEM-512'],
     [pqc, 'ML-KEM-768'],
     [pqc, 'ML-KEM-1024'],
+    [mlkemX25519, 'MLKEM768-X25519'],
     [false, 'AES-CTR'],
     [false, 'AES-CBC'],
     [false, 'AES-GCM'],
@@ -203,6 +209,7 @@ export const vectors = {
     [pqc, 'ML-KEM-512'],
     [pqc, 'ML-KEM-768'],
     [pqc, 'ML-KEM-1024'],
+    [mlkemX25519, 'MLKEM768-X25519'],
   ],
   'encapsulateKey': [
     [pqc, 'ML-KEM-512', 'AES-KW'],
@@ -220,6 +227,7 @@ export const vectors = {
     [pqc, 'ML-KEM-512'],
     [pqc, 'ML-KEM-768'],
     [pqc, 'ML-KEM-1024'],
+    [mlkemX25519, 'MLKEM768-X25519'],
   ],
   'decapsulateKey': [
     [pqc, 'ML-KEM-512', 'AES-KW'],
