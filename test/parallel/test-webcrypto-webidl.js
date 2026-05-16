@@ -529,9 +529,9 @@ function assertJsonWebKey(actual, expected) {
     passes: 1,
   };
 
-  assert.deepStrictEqual(converters.Argon2Params({ ...good, filtered: 'out' }, opts), good);
+  assertIdlDictionary(converters.Argon2Params({ ...good, filtered: 'out' }, opts), good);
 
-  assert.deepStrictEqual(
+  assertIdlDictionary(
     converters.Argon2Params({
       ...good,
       associatedData: Buffer.alloc(0),
@@ -547,13 +547,13 @@ function assertJsonWebKey(actual, expected) {
     assert.throws(() => converters.Argon2Params({ ...good, [required]: undefined }, opts), {
       name: 'TypeError',
       code: 'ERR_MISSING_OPTION',
-      message: `${prefix}: ${context} can not be converted to 'Argon2Params' because '${required}' is required in 'Argon2Params'.`,
+      message: `${prefix}: ${context} cannot be converted to 'Argon2Params' because '${required}' is required in 'Argon2Params'.`,
     });
   }
 
   assert.throws(() => converters.Argon2Params({ ...good, passes: 0 }, opts), {
     name: 'OperationError',
-    message: 'passes cannot be zero',
+    message: 'passes must be > 0',
   });
 }
 
