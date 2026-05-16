@@ -76,7 +76,7 @@ const { subtle } = globalThis.crypto;
       getUsagesMask(new Set(['sign'])),
       true).run();
 
-    assert.strictEqual(Object.getPrototypeOf(pair), null);
+    assert.strictEqual(Object.getPrototypeOf(pair), Object.prototype);
     assert(isCryptoKey(pair.publicKey));
     assert(isCryptoKey(pair.privateKey));
     assert(pair.publicKey instanceof CryptoKey);

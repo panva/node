@@ -175,8 +175,7 @@ MaybeLocal<Value> KEMEncapsulateTraits::EncodeOutput(
   }
 
   if (params.job_mode == kCryptoJobWebCrypto) {
-    Local<Object> result = Object::New(
-        env->isolate(), v8::Null(env->isolate()), nullptr, nullptr, 0);
+    Local<Object> result = Object::New(env->isolate());
     if (result
             ->Set(env->context(),
                   OneByteString(env->isolate(), "sharedKey"),

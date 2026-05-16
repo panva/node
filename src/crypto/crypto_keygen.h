@@ -183,8 +183,7 @@ class KeyGenJob final : public CryptoJob<KeyGenTraits> {
         return {};
       }
 
-      v8::Local<v8::Object> ret =
-          v8::Object::New(isolate, v8::Null(isolate), nullptr, nullptr, 0);
+      v8::Local<v8::Object> ret = v8::Object::New(isolate);
       if (ret->Set(env->context(),
                    OneByteString(isolate, "publicKey"),
                    public_key)
