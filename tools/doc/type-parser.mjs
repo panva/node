@@ -356,6 +356,9 @@ const customTypesMap = {
   'quic.OnTrailersCallback': 'quic.html#callback-ontrailerscallback',
   'quic.OnPullCallback': 'quic.html#callback-onpullcallback',
 
+  'VirtualProvider': 'vfs.html#class-virtualprovider',
+  'VirtualFileSystem': 'vfs.html#class-virtualfilesystem',
+
   'Lock': 'worker_threads.html#class-lock',
   'LockManager': 'worker_threads.html#class-lockmanager',
   'LockManagerSnapshot': 'https://developer.mozilla.org/en-US/docs/Web/API/LockManagerSnapshot',

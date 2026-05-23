@@ -145,6 +145,7 @@ BuiltinLoader::BuiltinCategories BuiltinLoader::GetBuiltinCategories() const {
         "stream/iter",  // Experimental.
         "zlib/iter",    // Experimental.
         "sys",          // Deprecated.
+        "vfs",          // Experimental.
         "wasi",         // Experimental.
 #if !HAVE_SQLITE
         "internal/webstorage",  // Experimental.

@@ -1328,6 +1328,16 @@ added: v22.7.0
 Enables the transformation of TypeScript-only syntax into JavaScript code.
 Implies `--enable-source-maps`.
 
+### `--experimental-vfs`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+> Stability: 1 - Experimental
+
+Enable the experimental [`node:vfs`][] module.
+
 ### `--experimental-vm-modules`
 
 <!-- YAML
@@ -3646,6 +3656,7 @@ one is included in the list below.
 * `--experimental-test-isolation`
 * `--experimental-top-level-await`
 * `--experimental-transform-types`
+* `--experimental-vfs`
 * `--experimental-vm-modules`
 * `--experimental-wasi-unstable-preview1`
 * `--experimental-webstorage`
@@ -4299,6 +4310,7 @@ node --stack-trace-limit=12 -p -e "Error.stackTraceLimit" # prints 12
 [`net.getDefaultAutoSelectFamilyAttemptTimeout()`]: net.md#netgetdefaultautoselectfamilyattempttimeout
 [`node:sqlite`]: sqlite.md
 [`node:stream/iter`]: stream_iter.md
+[`node:vfs`]: vfs.md
 [`permission.drop()`]: permissions.md#permissiondropscope-reference
 [`process.setUncaughtExceptionCaptureCallback()`]: process.md#processsetuncaughtexceptioncapturecallbackfn
 [`tls.DEFAULT_MAX_VERSION`]: tls.md#tlsdefault_max_version

@@ -131,6 +131,7 @@ class EnvironmentOptions : public Options {
   bool experimental_websocket = true;
   bool experimental_sqlite = HAVE_SQLITE;
   bool experimental_stream_iter = false;
+  bool experimental_vfs = false;
   bool experimental_webstorage = false;
 #ifndef OPENSSL_NO_QUIC
   bool experimental_quic = EXPERIMENTALS_DEFAULT_VALUE;
