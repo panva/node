@@ -8,6 +8,7 @@ const s390x = os.arch() === 's390x';
 
 const conditionalFileSkips = {};
 const conditionalSubtestSkips = {};
+const hybridKemRegExp = /MLKEM(?:768-(?:P256|X25519)|1024-P384)/i;
 
 function skip(...files) {
   for (const file of files) {
@@ -51,19 +52,24 @@ if (!hasOpenSSL(3, 5) && !process.features.openssl_is_boringssl) {
   skip(
     'encap_decap/encap_decap_bits.tentative.https.any.js',
     'encap_decap/encap_decap_keys.tentative.https.any.js',
+    'generateKey/failures_Hybrid-KEM.tentative.https.any.js',
     'generateKey/failures_ML-DSA.tentative.https.any.js',
     'generateKey/failures_ML-KEM.tentative.https.any.js',
+    'generateKey/successes_Hybrid-KEM.tentative.https.any.js',
     'generateKey/successes_ML-DSA.tentative.https.any.js',
     'generateKey/successes_ML-KEM.tentative.https.any.js',
+    'import_export/Hybrid-KEM_importKey.tentative.https.any.js',
     'import_export/ML-DSA_importKey.tentative.https.any.js',
     'import_export/ML-KEM_importKey.tentative.https.any.js',
+    'serialization/hybridkem.tentative.https.window.js',
     'serialization/mldsa.tentative.https.any.js',
     'serialization/mlkem.tentative.https.any.js',
     'sign_verify/mldsa.tentative.https.any.js');
 
   skipSubtests(
     ['getPublicKey.tentative.https.any.js', /ml-(?:kem|dsa)/i],
-    ['supports-modern.tentative.https.any.js', /ml-(?:kem|dsa)/i]);
+    ['supports-modern.tentative.https.any.js', /ml-(?:kem|dsa)/i],
+    ['supports-modern.tentative.https.any.js', hybridKemRegExp]);
 }
 
 if (process.features.openssl_is_boringssl) {
@@ -73,25 +79,32 @@ if (process.features.openssl_is_boringssl) {
     'digest/cshake.tentative.https.any.js',
     'digest/sha3.tentative.https.any.js',
     'generateKey/failures_Ed448.tentative.https.any.js',
+    'generateKey/failures_Hybrid-KEM.tentative.https.any.js',
     'generateKey/failures_X448.tentative.https.any.js',
     'generateKey/successes_Ed448.tentative.https.any.js',
+    'generateKey/successes_Hybrid-KEM.tentative.https.any.js',
     'generateKey/successes_X448.tentative.https.any.js',
+    'import_export/Hybrid-KEM_importKey.tentative.https.any.js',
     'import_export/okp_importKey_Ed448.tentative.https.any.js',
     'import_export/okp_importKey_failures_Ed448.tentative.https.any.js',
     'import_export/okp_importKey_failures_X448.tentative.https.any.js',
     'import_export/okp_importKey_X448.tentative.https.any.js',
     'serialization/ed448.tentative.https.any.js',
+    'serialization/hybridkem.tentative.https.window.js',
     'serialization/x448.tentative.https.any.js',
     'sign_verify/eddsa_curve448.tentative.https.any.js');
 
   skipSubtests(
+    ['encap_decap/encap_decap_bits.tentative.https.any.js', hybridKemRegExp],
     ['encap_decap/encap_decap_bits.tentative.https.any.js', /ml-kem-512/i],
+    ['encap_decap/encap_decap_keys.tentative.https.any.js', hybridKemRegExp],
     ['encap_decap/encap_decap_keys.tentative.https.any.js', /ml-kem-512/i],
     ['generateKey/failures_ML-KEM.tentative.https.any.js', /ml-kem-512/i],
     ['generateKey/successes_ML-KEM.tentative.https.any.js', /ml-kem-512/i],
     ['getPublicKey.tentative.https.any.js', /ml-kem-512/i],
     ['import_export/ML-KEM_importKey.tentative.https.any.js', /ml-kem-512/i],
     ['serialization/mlkem.tentative.https.any.js', /ml-kem-512/i],
+    ['supports-modern.tentative.https.any.js', hybridKemRegExp],
     ['supports-modern.tentative.https.any.js', /ml-kem-512/i]);
 }
 

@@ -7,8 +7,10 @@ const pqc = hasOpenSSL(3, 5) || boringSSL;
 const argon2 = hasOpenSSL(3, 2);
 const shake128 = crypto.getHashes().includes('shake128');
 const shake256 = crypto.getHashes().includes('shake256');
+const sha3 = crypto.getHashes().includes('sha3-256');
 const ocb = hasOpenSSL(3);
 const kmac = hasOpenSSL(3);
+const hybridKems = pqc && (!boringSSL || (sha3 && shake256));
 
 const { subtle } = globalThis.crypto;
 const X25519 = await subtle.generateKey('X25519', false, ['deriveBits', 'deriveKey']);
@@ -84,6 +86,9 @@ export const vectors = {
     [pqc, 'ML-KEM-768'],
     [pqc, 'ML-KEM-1024'],
     [true, 'ChaCha20-Poly1305'],
+    [hybridKems, 'MLKEM768-P256'],
+    [hybridKems, 'MLKEM768-X25519'],
+    [hybridKems, 'MLKEM1024-P384'],
     [ocb, { name: 'AES-OCB', length: 128 }],
     [false, 'Argon2d'],
     [false, 'Argon2i'],
@@ -105,6 +110,9 @@ export const vectors = {
     [pqc, 'ML-KEM-768'],
     [pqc, 'ML-KEM-1024'],
     [true, 'ChaCha20-Poly1305'],
+    [hybridKems, 'MLKEM768-P256'],
+    [hybridKems, 'MLKEM768-X25519'],
+    [hybridKems, 'MLKEM1024-P384'],
     [ocb, { name: 'AES-OCB', length: 128 }],
     [argon2, 'Argon2d'],
     [argon2, 'Argon2i'],
@@ -126,6 +134,9 @@ export const vectors = {
     [pqc, 'ML-KEM-768'],
     [pqc, 'ML-KEM-1024'],
     [true, 'ChaCha20-Poly1305'],
+    [hybridKems, 'MLKEM768-P256'],
+    [hybridKems, 'MLKEM768-X25519'],
+    [hybridKems, 'MLKEM1024-P384'],
     [ocb, 'AES-OCB'],
     [false, 'Argon2d'],
     [false, 'Argon2i'],
@@ -149,6 +160,9 @@ export const vectors = {
     [pqc && !boringSSL, 'ML-KEM-512'],
     [pqc, 'ML-KEM-768'],
     [pqc, 'ML-KEM-1024'],
+    [hybridKems, 'MLKEM768-P256'],
+    [hybridKems, 'MLKEM768-X25519'],
+    [hybridKems, 'MLKEM1024-P384'],
     [false, 'AES-CTR'],
     [false, 'AES-CBC'],
     [false, 'AES-GCM'],
@@ -208,6 +222,9 @@ export const vectors = {
     [pqc && !boringSSL, 'ML-KEM-512'],
     [pqc, 'ML-KEM-768'],
     [pqc, 'ML-KEM-1024'],
+    [hybridKems, 'MLKEM768-P256'],
+    [hybridKems, 'MLKEM768-X25519'],
+    [hybridKems, 'MLKEM1024-P384'],
   ],
   'encapsulateKey': [
     [pqc && !boringSSL, 'ML-KEM-512', 'AES-KW'],
@@ -222,6 +239,9 @@ export const vectors = {
     [pqc, 'ML-KEM-768', { name: 'HMAC', hash: 'SHA-256', length: 256 }],
     [pqc, 'ML-KEM-768', { name: 'HMAC', hash: 'SHA-256', length: 255 }],
     [pqc && kmac, 'ML-KEM-768', { name: 'KMAC128', length: 255 }],
+    [hybridKems, 'MLKEM768-P256', 'HKDF'],
+    [hybridKems, 'MLKEM768-X25519', 'HKDF'],
+    [hybridKems, 'MLKEM1024-P384', 'HKDF'],
     [false, 'ML-KEM-768', { name: 'HMAC', hash: 'SHA-256', length: 128 }],
     [false, 'ML-KEM-768', { name: 'KMAC128', length: 248 }],
   ],
@@ -229,6 +249,9 @@ export const vectors = {
     [pqc && !boringSSL, 'ML-KEM-512'],
     [pqc, 'ML-KEM-768'],
     [pqc, 'ML-KEM-1024'],
+    [hybridKems, 'MLKEM768-P256'],
+    [hybridKems, 'MLKEM768-X25519'],
+    [hybridKems, 'MLKEM1024-P384'],
   ],
   'decapsulateKey': [
     [pqc && !boringSSL, 'ML-KEM-512', 'AES-KW'],
@@ -243,6 +266,9 @@ export const vectors = {
     [pqc, 'ML-KEM-768', { name: 'HMAC', hash: 'SHA-256', length: 256 }],
     [pqc, 'ML-KEM-768', { name: 'HMAC', hash: 'SHA-256', length: 255 }],
     [pqc && kmac, 'ML-KEM-768', { name: 'KMAC128', length: 255 }],
+    [hybridKems, 'MLKEM768-P256', 'HKDF'],
+    [hybridKems, 'MLKEM768-X25519', 'HKDF'],
+    [hybridKems, 'MLKEM1024-P384', 'HKDF'],
     [false, 'ML-KEM-768', { name: 'HMAC', hash: 'SHA-256', length: 128 }],
     [false, 'ML-KEM-768', { name: 'KMAC128', length: 248 }],
   ],

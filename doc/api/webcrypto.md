@@ -2,6 +2,9 @@
 
 <!-- YAML
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/XXXXX
+    description: Hybrid KEM algorithms are now supported.
   - version:
      - v25.9.0
     pr-url: https://github.com/nodejs/node/pull/62183
@@ -135,6 +138,9 @@ Algorithms:
 * `'ML-KEM-512'`[^openssl35]
 * `'ML-KEM-768'`[^openssl35]
 * `'ML-KEM-1024'`[^openssl35]
+* `'MLKEM768-P256'`[^openssl35]
+* `'MLKEM768-X25519'`[^openssl35]
+* `'MLKEM1024-P384'`[^openssl35]
 * `'SHA3-256'`
 * `'SHA3-384'`
 * `'SHA3-512'`
@@ -544,6 +550,9 @@ Crypto API implementation and the APIs supported for each:
 | `'ML-KEM-512'`[^modern-algos]        | ✔                          | ✔                        | ✔                        | ✔                           |
 | `'ML-KEM-768'`[^modern-algos]        | ✔                          | ✔                        | ✔                        | ✔                           |
 | `'ML-KEM-1024'`[^modern-algos]       | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'MLKEM768-P256'`[^modern-algos]     | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'MLKEM768-X25519'`[^modern-algos]   | ✔                          | ✔                        | ✔                        | ✔                           |
+| `'MLKEM1024-P384'`[^modern-algos]    | ✔                          | ✔                        | ✔                        | ✔                           |
 | `'PBKDF2'`                           |                            |                          | ✔                        |                             |
 | `'RSA-OAEP'`                         | ✔                          | ✔                        | ✔                        | ✔                           |
 | `'RSA-PSS'`                          | ✔                          | ✔                        | ✔                        | ✔                           |
@@ -592,6 +601,9 @@ Crypto API implementation and the APIs supported for each:
 | `'ML-KEM-512'`[^modern-algos]        |            |                    |                        |              | ✔                 |        |
 | `'ML-KEM-768'`[^modern-algos]        |            |                    |                        |              | ✔                 |        |
 | `'ML-KEM-1024'`[^modern-algos]       |            |                    |                        |              | ✔                 |        |
+| `'MLKEM768-P256'`[^modern-algos]     |            |                    |                        |              | ✔                 |        |
+| `'MLKEM768-X25519'`[^modern-algos]   |            |                    |                        |              | ✔                 |        |
+| `'MLKEM1024-P384'`[^modern-algos]    |            |                    |                        |              | ✔                 |        |
 | `'PBKDF2'`                           |            |                    | ✔                      |              |                   |        |
 | `'RSA-OAEP'`                         | ✔          |                    |                        | ✔            |                   |        |
 | `'RSA-PSS'`                          |            | ✔                  |                        |              |                   |        |
@@ -766,6 +778,9 @@ Valid key usages depend on the key algorithm (identified by
 | `'ML-KEM-512'`[^modern-algos]        |            |                    |                        |              | ✔                 |
 | `'ML-KEM-768'`[^modern-algos]        |            |                    |                        |              | ✔                 |
 | `'ML-KEM-1024'`[^modern-algos]       |            |                    |                        |              | ✔                 |
+| `'MLKEM768-P256'`[^modern-algos]     |            |                    |                        |              | ✔                 |
+| `'MLKEM768-X25519'`[^modern-algos]   |            |                    |                        |              | ✔                 |
+| `'MLKEM1024-P384'`[^modern-algos]    |            |                    |                        |              | ✔                 |
 | `'PBKDF2'`                           |            |                    | ✔                      |              |                   |
 | `'RSA-OAEP'`                         | ✔          |                    |                        | ✔            |                   |
 | `'RSA-PSS'`                          |            | ✔                  |                        |              |                   |
@@ -849,6 +864,9 @@ The algorithms currently supported include:
 * `'ML-KEM-512'`[^modern-algos]
 * `'ML-KEM-768'`[^modern-algos]
 * `'ML-KEM-1024'`[^modern-algos]
+* `'MLKEM768-P256'`[^modern-algos]
+* `'MLKEM768-X25519'`[^modern-algos]
+* `'MLKEM1024-P384'`[^modern-algos]
 
 ### `subtle.decapsulateKey(decapsulationAlgorithm, decapsulationKey, ciphertext, sharedKeyAlgorithm, extractable, keyUsages)`
 
@@ -875,6 +893,9 @@ The algorithms currently supported include:
 * `'ML-KEM-512'`[^modern-algos]
 * `'ML-KEM-768'`[^modern-algos]
 * `'ML-KEM-1024'`[^modern-algos]
+* `'MLKEM768-P256'`[^modern-algos]
+* `'MLKEM768-X25519'`[^modern-algos]
+* `'MLKEM1024-P384'`[^modern-algos]
 
 ### `subtle.decrypt(algorithm, key, data)`
 
@@ -1072,6 +1093,9 @@ The algorithms currently supported include:
 * `'ML-KEM-512'`[^modern-algos]
 * `'ML-KEM-768'`[^modern-algos]
 * `'ML-KEM-1024'`[^modern-algos]
+* `'MLKEM768-P256'`[^modern-algos]
+* `'MLKEM768-X25519'`[^modern-algos]
+* `'MLKEM1024-P384'`[^modern-algos]
 
 ### `subtle.encapsulateKey(encapsulationAlgorithm, encapsulationKey, sharedKeyAlgorithm, extractable, keyUsages)`
 
@@ -1096,6 +1120,9 @@ The algorithms currently supported include:
 * `'ML-KEM-512'`[^modern-algos]
 * `'ML-KEM-768'`[^modern-algos]
 * `'ML-KEM-1024'`[^modern-algos]
+* `'MLKEM768-P256'`[^modern-algos]
+* `'MLKEM768-X25519'`[^modern-algos]
+* `'MLKEM1024-P384'`[^modern-algos]
 
 ### `subtle.encrypt(algorithm, key, data)`
 
@@ -1134,6 +1161,9 @@ The algorithms currently supported include:
 <!-- YAML
 added: v15.0.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/XXXXX
+    description: Hybrid KEM algorithms are now supported.
   - version: v26.1.0
     pr-url: https://github.com/nodejs/node/pull/62706
     description: Added JWK format support for ML-KEM key types.
@@ -1198,6 +1228,9 @@ specification.
 | `'ML-KEM-512'`[^modern-algos]        | ✔        | ✔         | ✔       |         |                | ✔              | ✔            |
 | `'ML-KEM-768'`[^modern-algos]        | ✔        | ✔         | ✔       |         |                | ✔              | ✔            |
 | `'ML-KEM-1024'`[^modern-algos]       | ✔        | ✔         | ✔       |         |                | ✔              | ✔            |
+| `'MLKEM768-P256'`[^modern-algos]     |          |           | ✔       |         |                | ✔              | ✔            |
+| `'MLKEM768-X25519'`[^modern-algos]   |          |           | ✔       |         |                | ✔              | ✔            |
+| `'MLKEM1024-P384'`[^modern-algos]    |          |           | ✔       |         |                | ✔              | ✔            |
 | `'RSA-OAEP'`                         | ✔        | ✔         | ✔       |         |                |                |              |
 | `'RSA-PSS'`                          | ✔        | ✔         | ✔       |         |                |                |              |
 | `'RSASSA-PKCS1-v1_5'`                | ✔        | ✔         | ✔       |         |                |                |              |
@@ -1221,6 +1254,9 @@ Derives the public key from a given private key.
 <!-- YAML
 added: v15.0.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/XXXXX
+    description: Hybrid KEM algorithms are now supported.
   - version: v24.8.0
     pr-url: https://github.com/nodejs/node/pull/59647
     description: KMAC algorithms are now supported.
@@ -1262,6 +1298,9 @@ include:
 * `'ML-KEM-512'`[^modern-algos]
 * `'ML-KEM-768'`[^modern-algos]
 * `'ML-KEM-1024'`[^modern-algos]
+* `'MLKEM768-P256'`[^modern-algos]
+* `'MLKEM768-X25519'`[^modern-algos]
+* `'MLKEM1024-P384'`[^modern-algos]
 * `'RSA-OAEP'`
 * `'RSA-PSS'`
 * `'RSASSA-PKCS1-v1_5'`
@@ -1285,6 +1324,9 @@ The {CryptoKey} (secret key) generating algorithms supported include:
 <!-- YAML
 added: v15.0.0
 changes:
+  - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/XXXXX
+    description: Hybrid KEM algorithms are now supported.
   - version: v26.1.0
     pr-url: https://github.com/nodejs/node/pull/62706
     description: Added JWK format support for ML-KEM key types.
@@ -1366,6 +1408,9 @@ The algorithms currently supported include:
 | `'ML-KEM-512'`[^modern-algos]        | ✔        | ✔         | ✔       |         |                | ✔              | ✔            |
 | `'ML-KEM-768'`[^modern-algos]        | ✔        | ✔         | ✔       |         |                | ✔              | ✔            |
 | `'ML-KEM-1024'`[^modern-algos]       | ✔        | ✔         | ✔       |         |                | ✔              | ✔            |
+| `'MLKEM768-P256'`[^modern-algos]     |          |           | ✔       |         |                | ✔              | ✔            |
+| `'MLKEM768-X25519'`[^modern-algos]   |          |           | ✔       |         |                | ✔              | ✔            |
+| `'MLKEM1024-P384'`[^modern-algos]    |          |           | ✔       |         |                | ✔              | ✔            |
 | `'PBKDF2'`                           |          |           |         | ✔       | ✔              |                |              |
 | `'RSA-OAEP'`                         | ✔        | ✔         | ✔       |         |                |                |              |
 | `'RSA-PSS'`                          | ✔        | ✔         | ✔       |         |                |                |              |
@@ -1488,6 +1533,9 @@ The unwrapped key algorithms supported include:
 * `'ML-KEM-512'`[^modern-algos]
 * `'ML-KEM-768'`[^modern-algos]
 * `'ML-KEM-1024'`[^modern-algos]
+* `'MLKEM768-P256'`[^modern-algos]
+* `'MLKEM768-X25519'`[^modern-algos]
+* `'MLKEM1024-P384'`[^modern-algos]
 * `'RSA-OAEP'`
 * `'RSA-PSS'`
 * `'RSASSA-PKCS1-v1_5'`

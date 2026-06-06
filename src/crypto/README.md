@@ -182,9 +182,11 @@ from the cached handle and appended lazily to the same private-field cache.
 
 A `CryptoKey` is the Web Crypto API key type. In the Node.js implementation,
 public `CryptoKey` instances are backed by a native `NativeCryptoKey`, not by
-a `KeyObject`. `NativeCryptoKey` stores the same `KeyObjectData`
+a `KeyObject`. `NativeCryptoKey` stores the same primary `KeyObjectData`
 representation as `KeyObject`, plus the Web Crypto internal slots
-(`[[extractable]]`, `[[algorithm]]`, and `[[usages]]`).
+(`[[extractable]]`, `[[algorithm]]`, and `[[usages]]`). For Hybrid KEM
+`CryptoKey` instances only, it may also store a secondary `KeyObjectData` and
+`seed_data` used to reconstruct the hybrid key material.
 
 ### `CryptoJob`
 
