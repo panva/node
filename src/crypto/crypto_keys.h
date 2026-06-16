@@ -46,7 +46,8 @@ class KeyObjectData final : public MemoryRetainer {
   static KeyObjectData CreateSecret(ByteSource key);
 
   static KeyObjectData CreateAsymmetric(KeyType type,
-                                        ncrypto::EVPKeyPointer&& pkey);
+                                        ncrypto::EVPKeyPointer&& pkey,
+                                        bool store_backed = false);
 
   KeyObjectData(std::nullptr_t = nullptr);
 
@@ -59,6 +60,7 @@ class KeyObjectData final : public MemoryRetainer {
   const ncrypto::EVPKeyPointer& GetAsymmetricKey() const;
   const char* GetSymmetricKey() const;
   size_t GetSymmetricKeySize() const;
+  bool IsStoreBacked() const;
 
   void MemoryInfo(MemoryTracker* tracker) const override;
   SET_MEMORY_INFO_NAME(KeyObjectData)
@@ -77,7 +79,9 @@ class KeyObjectData final : public MemoryRetainer {
       bool allow_key_object);
 
   static KeyObjectData GetPublicOrPrivateKeyFromJs(
-      const v8::FunctionCallbackInfo<v8::Value>& args, unsigned int* offset);
+      const v8::FunctionCallbackInfo<v8::Value>& args,
+      unsigned int* offset,
+      bool allow_store_backed_private = false);
 
   static v8::Maybe<ncrypto::EVPKeyPointer::PrivateKeyEncodingConfig>
   GetPrivateKeyEncodingFromJs(const v8::FunctionCallbackInfo<v8::Value>& args,
@@ -104,7 +108,9 @@ class KeyObjectData final : public MemoryRetainer {
 
  private:
   explicit KeyObjectData(ByteSource symmetric_key);
-  explicit KeyObjectData(KeyType type, ncrypto::EVPKeyPointer&& pkey);
+  explicit KeyObjectData(KeyType type,
+                         ncrypto::EVPKeyPointer&& pkey,
+                         bool store_backed = false);
 
   static KeyObjectData GetParsedKey(KeyType type,
                                     Environment* env,
@@ -118,10 +124,12 @@ class KeyObjectData final : public MemoryRetainer {
   struct Data {
     const ByteSource symmetric_key;
     const ncrypto::EVPKeyPointer asymmetric_key;
+    const bool store_backed = false;
     explicit Data(ByteSource symmetric_key)
         : symmetric_key(std::move(symmetric_key)) {}
-    explicit Data(ncrypto::EVPKeyPointer asymmetric_key)
-        : asymmetric_key(std::move(asymmetric_key)) {}
+    explicit Data(ncrypto::EVPKeyPointer asymmetric_key, bool store_backed)
+        : asymmetric_key(std::move(asymmetric_key)),
+          store_backed(store_backed) {}
   };
   std::shared_ptr<Data> data_;
 
@@ -151,7 +159,10 @@ class KeyObjectHandle : public BaseObject {
   static void New(const v8::FunctionCallbackInfo<v8::Value>& args);
 
   static void Init(const v8::FunctionCallbackInfo<v8::Value>& args);
+  static void InitPrivateKeyFromStore(
+      const v8::FunctionCallbackInfo<v8::Value>& args);
   static void GetKeyType(const v8::FunctionCallbackInfo<v8::Value>& args);
+  static void IsStoreBacked(const v8::FunctionCallbackInfo<v8::Value>& args);
   static void GetKeyDetail(const v8::FunctionCallbackInfo<v8::Value>& args);
   static void Equals(const v8::FunctionCallbackInfo<v8::Value>& args);
 

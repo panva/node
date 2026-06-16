@@ -34,6 +34,7 @@ const assert = require('assert');
   assert.ok(!process.permission.has('worker'));
   assert.ok(!process.permission.has('inspector'));
   assert.ok(!process.permission.has('net'));
+  assert.ok(!process.permission.has('crypto.store'));
   assert.ok(!process.permission.has('addon'));
   assert.ok(!process.permission.has('ffi'));
 }

@@ -13,6 +13,12 @@ inputs:
     description: Cachix auth token for nodejs.cachix.org.
     required: false
     default: ''
+  pkcs11-store-provider-test:
+    description: >
+      Whether to make pkcs11-provider, SoftHSM, and OpenSC available to the
+      regular test suite for the OpenSSL STORE provider-backed key test.
+    required: false
+    default: 'false'
 
 runs:
   using: composite
@@ -51,15 +57,30 @@ runs:
     - name: Build Node.js and run tests
       shell: bash
       run: |
+        dev_tools='[]'
+        if [ "${{ inputs.pkcs11-store-provider-test }}" = "true" ]; then
+          dev_tools='with import <nixpkgs> {}; [ pkcs11-provider softhsm opensc ]'
+        fi
+
         nix-shell \
           -I "nixpkgs=$TAR_DIR/tools/nix/pkgs.nix" \
           --pure --keep TAR_DIR --keep FLAKY_TESTS \
           --keep SCCACHE_GHA_ENABLED --keep ACTIONS_CACHE_SERVICE_V2 --keep ACTIONS_RESULTS_URL --keep ACTIONS_RUNTIME_TOKEN \
           --arg loadJSBuiltinsDynamically false \
           --arg ccache "${NIX_SCCACHE:-null}" \
-          --arg devTools '[]' \
+          --arg devTools "$dev_tools" \
           --arg benchmarkTools '[]' \
           ${{ inputs.extra-nix-flags }} \
           --run '
-              make -C "$TAR_DIR" run-ci -j4 V=1 TEST_CI_ARGS="-p actions --measure-flakiness 9 --skip-tests=$CI_SKIP_TESTS"
+              set -e
+              if [ "${{ inputs.pkcs11-store-provider-test }}" = "true" ]; then
+                provider=$(find /nix/store \( -path "*/lib/ossl-modules/pkcs11.so" -o -path "*/lib/ossl-modules/pkcs11.dylib" \) -print -quit)
+                softhsm=$(find /nix/store -path "*/lib/softhsm/libsofthsm2.so" -print -quit)
+                test -n "$provider"
+                test -n "$softhsm"
+                export NODE_TEST_PKCS11_PROVIDER=1
+                export NODE_TEST_PKCS11_PROVIDER_MODULE="$provider"
+                export NODE_TEST_SOFTHSM_MODULE="$softhsm"
+              fi
+              make -C "$TAR_DIR" run-ci -j4 V=1 TEST_CI_ARGS="-p actions --measure-flakiness 9 --skip-tests=${CI_SKIP_TESTS:-}"
           ' "$TAR_DIR/shell.nix"

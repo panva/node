@@ -693,6 +693,13 @@ EnvironmentOptionsParser::EnvironmentOptionsParser() {
             kAllowedInEnvvar,
             false,
             OptionNamespaces::kPermissionNamespace);
+  AddOption("--allow-crypto-store",
+            "allow loading private keys from OpenSSL STORE providers when "
+            "any permissions are set",
+            &EnvironmentOptions::allow_crypto_store,
+            kAllowedInEnvvar,
+            false,
+            OptionNamespaces::kPermissionNamespace);
 #if HAVE_FFI
   AddOption("--allow-ffi",
             "allow use of FFI when any permissions are set",

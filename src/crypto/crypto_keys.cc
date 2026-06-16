@@ -12,10 +12,18 @@
 #include "memory_tracker-inl.h"
 #include "node.h"
 #include "node_buffer.h"
+#include "permission/permission.h"
 #include "string_bytes.h"
 #include "threadpoolwork-inl.h"
 #include "util-inl.h"
 #include "v8.h"
+
+#include <openssl/pem.h>
+#if OPENSSL_VERSION_MAJOR >= 3 && !defined(OPENSSL_IS_BORINGSSL)
+#include <openssl/provider.h>
+#include <openssl/store.h>
+#include <openssl/ui.h>
+#endif
 
 namespace node {
 
@@ -123,6 +131,7 @@ MaybeLocal<Value> WritePrivateKey(
     const EVPKeyPointer& pkey,
     const EVPKeyPointer::PrivateKeyEncodingConfig& config) {
   if (!pkey) return {};
+
   auto res = pkey.writePrivateKey(config);
   if (res) return ToV8Value(env, std::move(res.value), config);
 
@@ -143,6 +152,84 @@ MaybeLocal<Value> WritePublicKey(
       env, res.openssl_error.value_or(0), "Failed to encode public key");
   return MaybeLocal<Value>();
 }
+
+#if OPENSSL_VERSION_MAJOR >= 3 && !defined(OPENSSL_IS_BORINGSSL)
+struct OSSLStoreCtxDeleter final {
+  void operator()(OSSL_STORE_CTX* pointer) const {
+    if (pointer != nullptr) OSSL_STORE_close(pointer);
+  }
+};
+
+using OSSLStoreCtxPointer =
+    std::unique_ptr<OSSL_STORE_CTX, OSSLStoreCtxDeleter>;
+using OSSLStoreInfoPointer =
+    ncrypto::DeleteFnPtr<OSSL_STORE_INFO, OSSL_STORE_INFO_free>;
+using OSSLStoreLoaderPointer =
+    ncrypto::DeleteFnPtr<OSSL_STORE_LOADER, OSSL_STORE_LOADER_free>;
+using UIMethodPointer = ncrypto::DeleteFnPtr<UI_METHOD, UI_destroy_method>;
+
+enum class StoreProviderStatus {
+  Found,
+  NotFound,
+  Builtin,
+};
+
+bool IsBuiltinStoreLoader(const OSSL_STORE_LOADER* loader) {
+  const OSSL_PROVIDER* provider = OSSL_STORE_LOADER_get0_provider(loader);
+  const char* provider_name =
+      provider == nullptr ? nullptr : OSSL_PROVIDER_get0_name(provider);
+  return provider_name != nullptr &&
+         (StringEqualNoCase(provider_name, "default") ||
+          StringEqualNoCase(provider_name, "base"));
+}
+
+std::string ToASCIILowercase(std::string_view input) {
+  std::string output;
+  output.reserve(input.size());
+  for (char c : input) {
+    if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+    output.push_back(c);
+  }
+  return output;
+}
+
+StoreProviderStatus GetStoreProviderPropertyQuery(std::string_view uri,
+                                                  std::string* propq) {
+  size_t colon = uri.find(':');
+  if (colon == 0 || colon == std::string_view::npos) {
+    return StoreProviderStatus::NotFound;
+  }
+
+  std::string scheme = ToASCIILowercase(uri.substr(0, colon));
+  OSSLStoreLoaderPointer loader(
+      OSSL_STORE_LOADER_fetch(nullptr, scheme.c_str(), nullptr));
+  if (!loader) return StoreProviderStatus::NotFound;
+
+  if (IsBuiltinStoreLoader(loader.get())) {
+    return StoreProviderStatus::Builtin;
+  }
+
+  const char* properties = OSSL_STORE_LOADER_get0_properties(loader.get());
+  if (properties == nullptr || properties[0] == '\0') {
+    // A provider-specific property query is required so OSSL_STORE_open_ex()
+    // can be pinned away from OpenSSL's built-in file fallback.
+    return StoreProviderStatus::NotFound;
+  }
+
+  *propq = properties;
+
+  ERR_set_mark();
+  OSSLStoreLoaderPointer file_loader(
+      OSSL_STORE_LOADER_fetch(nullptr, "file", propq->c_str()));
+  ERR_pop_to_mark();
+  if (file_loader && IsBuiltinStoreLoader(file_loader.get())) {
+    return StoreProviderStatus::Builtin;
+  }
+
+  return StoreProviderStatus::Found;
+}
+
+#endif  // OPENSSL_VERSION_MAJOR >= 3 && !defined(OPENSSL_IS_BORINGSSL)
 
 bool ExportJWKSecretKey(Environment* env,
                         const KeyObjectData& key,
@@ -386,6 +473,7 @@ bool KeyObjectData::ToEncodedPublicKey(
     const auto& pkey = GetAsymmetricKey();
     if (pkey.id() == EVP_PKEY_EC) {
       const EC_KEY* ec_key = pkey;
+      // Store-backed private keys cannot be rewrapped as public keys.
       CHECK_NOT_NULL(ec_key);
       auto form = static_cast<point_conversion_form_t>(config.ec_point_form);
       const auto group = ECKeyPointer::GetGroup(ec_key);
@@ -423,6 +511,9 @@ bool KeyObjectData::ToEncodedPrivateKey(
     return KeyObjectHandle::Create(env,
                                    addRefWithType(KeyType::kKeyTypePrivate))
         .ToLocal(out);
+  } else if (IsStoreBacked()) {
+    THROW_ERR_CRYPTO_KEY_NOT_EXPORTABLE(env);
+    return false;
   } else if (config.format == EVPKeyPointer::PKFormatType::JWK) {
     *out = Object::New(env->isolate());
     return ExportJWKInner(
@@ -804,7 +895,9 @@ KeyObjectData KeyObjectData::GetPrivateKeyFromJs(
 }
 
 KeyObjectData KeyObjectData::GetPublicOrPrivateKeyFromJs(
-    const FunctionCallbackInfo<Value>& args, unsigned int* offset) {
+    const FunctionCallbackInfo<Value>& args,
+    unsigned int* offset,
+    bool allow_store_backed_private) {
   Environment* env = Environment::GetCurrent(args);
 
   // JWK format: data is a JS Object (not buffer), format int is JWK.
@@ -906,9 +999,15 @@ KeyObjectData KeyObjectData::GetPublicOrPrivateKeyFromJs(
   KeyObjectHandle* key =
       BaseObject::Unwrap<KeyObjectHandle>(args[*offset].As<Object>());
   CHECK_NOT_NULL(key);
-  CHECK_NE(key->Data().GetKeyType(), kKeyTypeSecret);
+  const KeyObjectData& data = key->Data();
+  CHECK_NE(data.GetKeyType(), kKeyTypeSecret);
+  if (!allow_store_backed_private && data.GetKeyType() == kKeyTypePrivate &&
+      data.IsStoreBacked()) {
+    THROW_ERR_CRYPTO_KEY_NOT_EXPORTABLE(env);
+    return {};
+  }
   (*offset) += 5;
-  return key->Data().addRef();
+  return data.addRef();
 }
 
 KeyObjectData KeyObjectData::GetParsedKey(KeyType type,
@@ -940,8 +1039,11 @@ KeyObjectData::KeyObjectData(ByteSource symmetric_key)
     : key_type_(KeyType::kKeyTypeSecret),
       data_(std::make_shared<Data>(std::move(symmetric_key))) {}
 
-KeyObjectData::KeyObjectData(KeyType type, EVPKeyPointer&& pkey)
-    : key_type_(type), data_(std::make_shared<Data>(std::move(pkey))) {}
+KeyObjectData::KeyObjectData(KeyType type,
+                             EVPKeyPointer&& pkey,
+                             bool store_backed)
+    : key_type_(type),
+      data_(std::make_shared<Data>(std::move(pkey), store_backed)) {}
 
 void KeyObjectData::MemoryInfo(MemoryTracker* tracker) const {
   if (!*this) return;
@@ -979,9 +1081,10 @@ KeyObjectData KeyObjectData::CreateSecret(ByteSource key) {
 }
 
 KeyObjectData KeyObjectData::CreateAsymmetric(KeyType key_type,
-                                              EVPKeyPointer&& pkey) {
+                                              EVPKeyPointer&& pkey,
+                                              bool store_backed) {
   CHECK(pkey);
-  return KeyObjectData(key_type, std::move(pkey));
+  return KeyObjectData(key_type, std::move(pkey), store_backed);
 }
 
 KeyType KeyObjectData::GetKeyType() const {
@@ -1007,6 +1110,11 @@ size_t KeyObjectData::GetSymmetricKeySize() const {
   return data_->symmetric_key.size();
 }
 
+bool KeyObjectData::IsStoreBacked() const {
+  CHECK(data_);
+  return data_->store_backed;
+}
+
 bool KeyObjectHandle::HasInstance(Environment* env, Local<Value> value) {
   auto t = env->crypto_key_object_handle_constructor();
   return !t.IsEmpty() && t->HasInstance(value);
@@ -1021,7 +1129,10 @@ Local<Function> KeyObjectHandle::Initialize(Environment* env) {
         KeyObjectHandle::kInternalFieldCount);
 
     SetProtoMethod(isolate, templ, "init", Init);
+    SetProtoMethod(
+        isolate, templ, "initPrivateKeyFromStore", InitPrivateKeyFromStore);
     SetProtoMethodNoSideEffect(isolate, templ, "getKeyType", GetKeyType);
+    SetProtoMethodNoSideEffect(isolate, templ, "isStoreBacked", IsStoreBacked);
     SetProtoMethodNoSideEffect(
         isolate, templ, "getSymmetricKeySize", GetSymmetricKeySize);
     SetProtoMethodNoSideEffect(
@@ -1049,7 +1160,9 @@ void KeyObjectHandle::RegisterExternalReferences(
     ExternalReferenceRegistry* registry) {
   registry->Register(New);
   registry->Register(Init);
+  registry->Register(InitPrivateKeyFromStore);
   registry->Register(GetKeyType);
+  registry->Register(IsStoreBacked);
   registry->Register(GetSymmetricKeySize);
   registry->Register(GetAsymmetricKeyType);
   registry->Register(CheckEcKeyData);
@@ -1180,12 +1293,126 @@ void KeyObjectHandle::Init(const FunctionCallbackInfo<Value>& args) {
   }
 }
 
+void KeyObjectHandle::InitPrivateKeyFromStore(
+    const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+  CHECK_EQ(args.Length(), 2);
+  CHECK(args[0]->IsString());
+  CHECK(args[1]->IsNull() || IsAnyBufferSource(args[1]));
+
+  Utf8Value uri_value(env->isolate(), args[0]);
+  std::string_view uri(*uri_value, uri_value.length());
+  THROW_IF_INSUFFICIENT_PERMISSIONS(
+      env, permission::PermissionScope::kCryptoStore, uri);
+
+#if OPENSSL_VERSION_MAJOR < 3 || defined(OPENSSL_IS_BORINGSSL)
+  THROW_ERR_CRYPTO_OPERATION_FAILED(
+      env, "OpenSSL STORE providers are not supported by this OpenSSL build");
+#else
+  KeyObjectHandle* key;
+  ASSIGN_OR_RETURN_UNWRAP(&key, args.This());
+  MarkPopErrorOnReturn mark_pop_error_on_return;
+
+  std::string store_propq;
+  switch (GetStoreProviderPropertyQuery(uri, &store_propq)) {
+    case StoreProviderStatus::Found:
+      break;
+    case StoreProviderStatus::Builtin:
+      THROW_ERR_INVALID_ARG_VALUE(
+          env,
+          "The \"url\" argument must identify an OpenSSL STORE provider URL");
+      return;
+    case StoreProviderStatus::NotFound:
+      ThrowCryptoError(env,
+                       mark_pop_error_on_return.peekError(),
+                       "Failed to open OpenSSL STORE");
+      return;
+  }
+
+  ByteSource passphrase;
+  bool has_passphrase = !args[1]->IsNull();
+  if (has_passphrase) {
+    passphrase = ByteSource::FromStringOrBuffer(env, args[1]);
+  }
+  const ByteSource* passphrase_ptr = has_passphrase ? &passphrase : nullptr;
+  UIMethodPointer ui_method(UI_UTIL_wrap_read_pem_callback(
+      has_passphrase ? PasswordCallback : NoPasswordCallback, 0));
+  if (!ui_method) {
+    THROW_ERR_CRYPTO_OPERATION_FAILED(
+        env, "Unable to initialize OpenSSL STORE password callback");
+    return;
+  }
+
+  void* ui_data = has_passphrase ? &passphrase_ptr : nullptr;
+  OSSLStoreCtxPointer store(OSSL_STORE_open_ex(*uri_value,
+                                               nullptr,
+                                               store_propq.c_str(),
+                                               ui_method.get(),
+                                               ui_data,
+                                               nullptr,
+                                               nullptr,
+                                               nullptr));
+  if (!store) {
+    ThrowCryptoError(env,
+                     mark_pop_error_on_return.peekError(),
+                     "Failed to open OpenSSL STORE");
+    return;
+  }
+
+  if (OSSL_STORE_expect(store.get(), OSSL_STORE_INFO_PKEY) != 1) {
+    ThrowCryptoError(env,
+                     mark_pop_error_on_return.peekError(),
+                     "Failed to set OpenSSL STORE expectation");
+    return;
+  }
+
+  while (OSSL_STORE_eof(store.get()) != 1) {
+    OSSLStoreInfoPointer info(OSSL_STORE_load(store.get()));
+    if (!info) {
+      if (OSSL_STORE_error(store.get()) == 1) {
+        ThrowCryptoError(env,
+                         mark_pop_error_on_return.peekError(),
+                         "Failed to load key from OpenSSL STORE");
+        return;
+      }
+      break;
+    }
+
+    if (OSSL_STORE_INFO_get_type(info.get()) != OSSL_STORE_INFO_PKEY) {
+      continue;
+    }
+
+    EVP_PKEY* pkey = OSSL_STORE_INFO_get1_PKEY(info.get());
+    if (pkey == nullptr) {
+      ThrowCryptoError(env,
+                       mark_pop_error_on_return.peekError(),
+                       "Failed to extract key from OpenSSL STORE");
+      return;
+    }
+
+    key->data_ = KeyObjectData::CreateAsymmetric(
+        kKeyTypePrivate, EVPKeyPointer(pkey), true);
+    return;
+  }
+
+  THROW_ERR_CRYPTO_OPERATION_FAILED(
+      env, "OpenSSL STORE did not return a private key");
+#endif
+}
+
 void KeyObjectHandle::GetKeyType(const FunctionCallbackInfo<Value>& args) {
   KeyObjectHandle* key;
   ASSIGN_OR_RETURN_UNWRAP(&key, args.This());
 
   args.GetReturnValue().Set(
       Uint32::NewFromUnsigned(args.GetIsolate(), key->Data().GetKeyType()));
+}
+
+void KeyObjectHandle::IsStoreBacked(const FunctionCallbackInfo<Value>& args) {
+  KeyObjectHandle* key;
+  ASSIGN_OR_RETURN_UNWRAP(&key, args.This());
+
+  args.GetReturnValue().Set(key->Data().IsStoreBacked());
 }
 
 void KeyObjectHandle::Equals(const FunctionCallbackInfo<Value>& args) {
@@ -1376,6 +1603,11 @@ MaybeLocal<Value> KeyObjectHandle::ExportPublicKey(
 
 MaybeLocal<Value> KeyObjectHandle::ExportPrivateKey(
     const EVPKeyPointer::PrivateKeyEncodingConfig& config) const {
+  if (data_.IsStoreBacked()) {
+    THROW_ERR_CRYPTO_KEY_NOT_EXPORTABLE(env());
+    return {};
+  }
+
   return WritePrivateKey(env(), data_.GetAsymmetricKey(), config);
 }
 
@@ -1420,6 +1652,9 @@ void KeyObjectHandle::RawPrivateKey(
 
   const KeyObjectData& data = key->Data();
   CHECK_EQ(data.GetKeyType(), kKeyTypePrivate);
+  if (data.IsStoreBacked()) {
+    return THROW_ERR_CRYPTO_KEY_NOT_EXPORTABLE(env);
+  }
 
   Mutex::ScopedLock lock(data.mutex());
   const auto& pkey = data.GetAsymmetricKey();
@@ -1461,6 +1696,7 @@ void KeyObjectHandle::ExportECPublicRaw(
   }
 
   const EC_KEY* ec_key = m_pkey;
+  // Store-backed private keys cannot be rewrapped as public keys.
   CHECK_NOT_NULL(ec_key);
 
   CHECK(args[0]->IsInt32());
@@ -1484,6 +1720,9 @@ void KeyObjectHandle::ExportECPrivateRaw(
 
   const KeyObjectData& data = key->Data();
   CHECK_EQ(data.GetKeyType(), kKeyTypePrivate);
+  if (data.IsStoreBacked()) {
+    return THROW_ERR_CRYPTO_KEY_NOT_EXPORTABLE(env);
+  }
 
   Mutex::ScopedLock lock(data.mutex());
   const auto& m_pkey = data.GetAsymmetricKey();
@@ -1519,6 +1758,9 @@ void KeyObjectHandle::RawSeed(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
   const KeyObjectData& data = key->Data();
   CHECK_EQ(data.GetKeyType(), kKeyTypePrivate);
+  if (data.IsStoreBacked()) {
+    return THROW_ERR_CRYPTO_KEY_NOT_EXPORTABLE(env);
+  }
 
 #if OPENSSL_WITH_PQC
   Mutex::ScopedLock lock(data.mutex());
@@ -1549,9 +1791,16 @@ void KeyObjectHandle::ExportJWK(
 
   CHECK(args[0]->IsObject());
   CHECK(args[1]->IsBoolean());
+  if (key->Data().GetKeyType() == kKeyTypePrivate &&
+      key->Data().IsStoreBacked()) {
+    THROW_ERR_CRYPTO_KEY_NOT_EXPORTABLE(env);
+    return;
+  }
 
   if (ExportJWKInner(env, key->Data(), args[0], args[1]->IsTrue())) {
     args.GetReturnValue().Set(args[0]);
+  } else if (!env->isolate()->HasPendingException()) {
+    THROW_ERR_CRYPTO_OPERATION_FAILED(env, "Failed to export JWK");
   }
 }
 

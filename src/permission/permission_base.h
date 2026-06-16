@@ -32,6 +32,9 @@ namespace permission {
 
 #define NET_PERMISSIONS(V) V(Net, "net", PermissionsRoot, "--allow-net")
 
+#define CRYPTO_STORE_PERMISSIONS(V)                                            \
+  V(CryptoStore, "crypto.store", PermissionsRoot, "--allow-crypto-store")
+
 #define ADDON_PERMISSIONS(V)                                                   \
   V(Addon, "addon", PermissionsRoot, "--allow-addons")
 
@@ -44,6 +47,7 @@ namespace permission {
   WORKER_THREADS_PERMISSIONS(V)                                                \
   INSPECTOR_PERMISSIONS(V)                                                     \
   NET_PERMISSIONS(V)                                                           \
+  CRYPTO_STORE_PERMISSIONS(V)                                                  \
   ADDON_PERMISSIONS(V)                                                         \
   FFI_PERMISSIONS(V)
 

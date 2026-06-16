@@ -10,6 +10,9 @@
 #include "v8.h"
 
 #include <openssl/bn.h>
+#if OPENSSL_VERSION_MAJOR >= 3 && !defined(OPENSSL_IS_BORINGSSL)
+#include <openssl/core_names.h>
+#endif
 #include <openssl/rsa.h>
 
 namespace node {
@@ -439,9 +442,31 @@ bool GetRsaKeyDetail(Environment* env,
   // TODO(tniessen): Remove the "else" branch once we drop support for OpenSSL
   // versions older than 1.1.1e via FIPS / dynamic linking.
   const ncrypto::Rsa rsa = m_pkey;
-  if (!rsa) return false;
+  ncrypto::Rsa::PublicKey pub_key{};
+  BignumPointer modulus;
+  BignumPointer exponent;
 
-  auto pub_key = rsa.getPublicKey();
+  if (!rsa) {
+    if (!key.IsStoreBacked()) return false;
+#if OPENSSL_VERSION_MAJOR >= 3 && !defined(OPENSSL_IS_BORINGSSL)
+    BIGNUM* n = nullptr;
+    BIGNUM* e = nullptr;
+    if (EVP_PKEY_get_bn_param(m_pkey.get(), OSSL_PKEY_PARAM_RSA_N, &n) != 1) {
+      return false;
+    }
+    modulus.reset(n);
+    if (EVP_PKEY_get_bn_param(m_pkey.get(), OSSL_PKEY_PARAM_RSA_E, &e) != 1) {
+      return false;
+    }
+    exponent.reset(e);
+    pub_key.n = modulus.get();
+    pub_key.e = exponent.get();
+#else
+    return false;
+#endif
+  } else {
+    pub_key = rsa.getPublicKey();
+  }
 
   if (target
           ->Set(env->context(),

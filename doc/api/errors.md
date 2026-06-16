@@ -1123,6 +1123,16 @@ added: v24.7.0
 Attempted to use KEM operations while Node.js was not compiled with
 OpenSSL with KEM support.
 
+<a id="ERR_CRYPTO_KEY_NOT_EXPORTABLE"></a>
+
+### `ERR_CRYPTO_KEY_NOT_EXPORTABLE`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+A private key could not be exported because the key material is not exportable.
+
 <a id="ERR_CRYPTO_OPERATION_FAILED"></a>
 
 ### `ERR_CRYPTO_OPERATION_FAILED`

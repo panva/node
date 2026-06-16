@@ -40,6 +40,8 @@ constexpr std::string_view GetDiagnosticsChannelName(PermissionScope scope) {
       return "node:permission-model:worker";
     case PermissionScope::kNet:
       return "node:permission-model:net";
+    case PermissionScope::kCryptoStore:
+      return "node:permission-model:crypto-store";
     case PermissionScope::kInspector:
       return "node:permission-model:inspector";
     case PermissionScope::kWASI:
@@ -129,6 +131,8 @@ Permission::Permission() : enabled_(false), warning_only_(false) {
       std::make_shared<InspectorPermission>();
   std::shared_ptr<PermissionBase> wasi = std::make_shared<WASIPermission>();
   std::shared_ptr<PermissionBase> net = std::make_shared<NetPermission>();
+  std::shared_ptr<PermissionBase> crypto_store =
+      std::make_shared<CryptoStorePermission>();
   std::shared_ptr<PermissionBase> addon = std::make_shared<AddonPermission>();
   std::shared_ptr<FFIPermission> ffi = std::make_shared<FFIPermission>();
 #define V(Name, _, __, ___)                                                    \
@@ -154,6 +158,10 @@ Permission::Permission() : enabled_(false), warning_only_(false) {
 #define V(Name, _, __, ___)                                                    \
   nodes_.insert(std::make_pair(PermissionScope::k##Name, net));
   NET_PERMISSIONS(V)
+#undef V
+#define V(Name, _, __, ___)                                                    \
+  nodes_.insert(std::make_pair(PermissionScope::k##Name, crypto_store));
+  CRYPTO_STORE_PERMISSIONS(V)
 #undef V
 #define V(Name, _, __, ___)                                                    \
   nodes_.insert(std::make_pair(PermissionScope::k##Name, addon));

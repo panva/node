@@ -3210,6 +3210,7 @@ The available scopes are the same as [`process.permission.has()`][]:
 * `child` - Child process spawning operations
 * `worker` - Worker thread spawning operation
 * `net` - Network operations
+* `crypto.store` - OpenSSL STORE provider private key loading
 * `inspector` - Inspector operations
 * `wasi` - WASI operations
 * `addon` - Native addon operations

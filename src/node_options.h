@@ -149,6 +149,7 @@ class EnvironmentOptions : public Options {
   bool allow_addons = false;
   bool allow_inspector = false;
   bool allow_child_process = false;
+  bool allow_crypto_store = false;
   bool allow_net = false;
   bool allow_wasi = false;
   bool allow_ffi = false;

@@ -2489,6 +2489,9 @@ added:
 
 Converts a `KeyObject` instance to a `CryptoKey`.
 
+Private keys loaded from OpenSSL STORE providers can only be converted with
+`extractable` set to `false`.
+
 ### `keyObject.type`
 
 <!-- YAML
@@ -3955,8 +3958,8 @@ changes:
 
 <!--lint disable maximum-line-length remark-lint-->
 
-* `key` {Object|string|ArrayBuffer|Buffer|TypedArray|DataView}
-  * `key` {string|ArrayBuffer|Buffer|TypedArray|DataView|Object} The key
+* `key` {Object|string|ArrayBuffer|Buffer|TypedArray|DataView|URL}
+  * `key` {string|ArrayBuffer|Buffer|TypedArray|DataView|Object|URL} The key
     material, either in PEM, DER, JWK, or raw format.
   * `format` {string} Must be `'pem'`, `'der'`, `'jwk'`, `'raw-private'`,
     or `'raw-seed'`. **Default:** `'pem'`.
@@ -3976,6 +3979,18 @@ changes:
 Creates and returns a new key object containing a private key. If `key` is a
 string or `Buffer`, `format` is assumed to be `'pem'`; otherwise, `key`
 must be an object with the properties described above.
+
+If `key` is a WHATWG {URL}, it is loaded through OpenSSL STORE providers.
+Only provider-backed URLs are supported. Node.js does not pass URL input to
+OpenSSL's built-in `default` or `base` STORE loaders, so local file STORE
+loading is not exposed through this API. Provider-specific URL grammar and
+parameters are handled by the configured provider.
+
+When `key` is a {URL}, `passphrase` is passed separately to OpenSSL's password
+callback and is not encoded into the URL.
+
+Private keys loaded from OpenSSL STORE providers are not exportable through
+Node.js, and cannot be passed where a public key is required.
 
 If the private key is encrypted, a `passphrase` must be specified. The length
 of the passphrase is limited to 1024 bytes.
@@ -4047,6 +4062,7 @@ returned `KeyObject` will be `'public'` and that the private key cannot be
 extracted from the returned `KeyObject`. Similarly, if a `KeyObject` with type
 `'private'` is given, a new `KeyObject` with type `'public'` will be returned
 and it will be impossible to extract the private key from the returned object.
+This does not apply to private keys loaded from OpenSSL STORE providers.
 
 ### `crypto.createSecretKey(key[, encoding])`
 
@@ -5355,6 +5371,7 @@ object, the `padding` property can be passed. Otherwise, this function uses
 
 Because RSA public keys can be derived from private keys, a private key may
 be passed instead of a public key.
+This does not apply to private keys loaded from OpenSSL STORE providers.
 
 ### `crypto.publicEncrypt(key, buffer)`
 
@@ -5411,6 +5428,7 @@ object, the `padding` property can be passed. Otherwise, this function uses
 
 Because RSA public keys can be derived from private keys, a private key may
 be passed instead of a public key.
+This does not apply to private keys loaded from OpenSSL STORE providers.
 
 ### `crypto.randomBytes(size[, callback])`
 

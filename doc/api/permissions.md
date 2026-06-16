@@ -68,8 +68,11 @@ Error: Access to this API has been restricted
 Allowing access to spawning a process and creating worker threads can be done
 using the [`--allow-child-process`][] and [`--allow-worker`][] respectively.
 
-To allow network access, use [`--allow-net`][] and for allowing native addons
-when using permission model, use the [`--allow-addons`][]
+To allow network access, use [`--allow-net`][]. To allow loading private keys
+from OpenSSL STORE provider URLs, use [`--allow-crypto-store`][]. This does not
+grant access to Node.js file system or network APIs, but configured OpenSSL
+providers may perform their own I/O outside those permission scopes. For
+allowing native addons when using permission model, use the [`--allow-addons`][]
 flag. For WASI, use the [`--allow-wasi`][] flag. For FFI, use the
 [`--allow-ffi`][] flag. The [`node:ffi`](ffi.md) module also requires the
 `--experimental-ffi` flag and is only available in builds with FFI support.
@@ -206,6 +209,7 @@ Example `node.config.json`:
     "allow-fs-write": ["./bar"],
     "allow-child-process": true,
     "allow-worker": true,
+    "allow-crypto-store": true,
     "allow-net": true,
     "allow-addons": false,
     "allow-ffi": false
@@ -318,6 +322,7 @@ Developers relying on --permission to sandbox untrusted code should be aware tha
 [Security Policy]: https://github.com/nodejs/node/blob/main/SECURITY.md
 [`--allow-addons`]: cli.md#--allow-addons
 [`--allow-child-process`]: cli.md#--allow-child-process
+[`--allow-crypto-store`]: cli.md#--allow-crypto-store
 [`--allow-ffi`]: cli.md#--allow-ffi
 [`--allow-fs-read`]: cli.md#--allow-fs-read
 [`--allow-fs-write`]: cli.md#--allow-fs-write

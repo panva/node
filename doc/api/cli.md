@@ -329,6 +329,28 @@ Error: connect ERR_ACCESS_DENIED Access to this API has been restricted. Use --a
 }
 ```
 
+### `--allow-crypto-store`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+> Stability: 1.1 - Active development
+
+When using the [Permission Model][], the process will not be able to load
+private keys from OpenSSL STORE provider URLs by default. Attempts to do so
+will throw an `ERR_ACCESS_DENIED` unless the user explicitly passes the
+`--allow-crypto-store` flag when starting Node.js.
+
+This permission only applies to OpenSSL STORE provider URLs accepted by
+[`crypto.createPrivateKey()`][]. It does not grant access to Node.js file
+system or network APIs. Configured OpenSSL providers may still perform their
+own I/O, credential handling, hardware access, or daemon communication outside
+of Node.js `fs` and `net` permission scopes.
+
+Node.js does not pass URL input to OpenSSL's built-in `default` or `base` STORE
+loaders, so local file STORE loading is not exposed through this API.
+
 ### `--allow-net`
 
 <!-- YAML
@@ -2322,6 +2344,7 @@ following permissions are restricted:
 * File System - manageable through
   [`--allow-fs-read`][], [`--allow-fs-write`][] flags
 * Network - manageable through [`--allow-net`][] flag
+* OpenSSL STORE - manageable through [`--allow-crypto-store`][] flag
 * Child Process - manageable through [`--allow-child-process`][] flag
 * Worker Threads - manageable through [`--allow-worker`][] flag
 * WASI - manageable through [`--allow-wasi`][] flag
@@ -3777,6 +3800,7 @@ one is included in the list below.
 
 * `--allow-addons`
 * `--allow-child-process`
+* `--allow-crypto-store`
 * `--allow-ffi`
 * `--allow-fs-read`
 * `--allow-fs-write`
@@ -4420,6 +4444,7 @@ node --stack-trace-limit=12 -p -e "Error.stackTraceLimit" # prints 12
 [`"type"`]: packages.md#type
 [`--allow-addons`]: #--allow-addons
 [`--allow-child-process`]: #--allow-child-process
+[`--allow-crypto-store`]: #--allow-crypto-store
 [`--allow-fs-read`]: #--allow-fs-read
 [`--allow-fs-write`]: #--allow-fs-write
 [`--allow-net`]: #--allow-net
@@ -4453,6 +4478,7 @@ node --stack-trace-limit=12 -p -e "Error.stackTraceLimit" # prints 12
 [`NO_COLOR`]: https://no-color.org
 [`Web Storage`]: https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API
 [`YoungGenerationSizeFromSemiSpaceSize`]: https://chromium.googlesource.com/v8/v8.git/+/refs/tags/10.3.129/src/heap/heap.cc#328
+[`crypto.createPrivateKey()`]: crypto.md#cryptocreateprivatekeykey
 [`dns.lookup()`]: dns.md#dnslookuphostname-options-callback
 [`dns.setDefaultResultOrder()`]: dns.md#dnssetdefaultresultorderorder
 [`dnsPromises.lookup()`]: dns.md#dnspromiseslookuphostname-options

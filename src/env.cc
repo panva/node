@@ -983,6 +983,11 @@ Environment::Environment(IsolateData* isolate_data,
     if (options_->allow_net) {
       permission()->Apply(this, {"*"}, permission::PermissionScope::kNet);
     }
+
+    if (options_->allow_crypto_store) {
+      permission()->Apply(
+          this, {"*"}, permission::PermissionScope::kCryptoStore);
+    }
   }
 }
 

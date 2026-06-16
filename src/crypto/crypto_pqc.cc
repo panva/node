@@ -163,8 +163,12 @@ bool ExportJwkPqcKey(Environment* env,
     const bool uses_seed = HasPqcAlgorithmFlag(alg, kPqcRawSeed);
     DataPointer priv_data = uses_seed ? pkey.rawSeed() : pkey.rawPrivateKey();
     if (uses_seed && !priv_data) {
-      THROW_ERR_CRYPTO_OPERATION_FAILED(env,
-                                        "key does not have an available seed");
+      if (key.IsStoreBacked()) {
+        THROW_ERR_CRYPTO_KEY_NOT_EXPORTABLE(env);
+      } else {
+        THROW_ERR_CRYPTO_OPERATION_FAILED(
+            env, "key does not have an available seed");
+      }
       return false;
     }
     if (!TrySetEncodedKey(

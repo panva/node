@@ -11,6 +11,9 @@
 #include "v8.h"
 
 #include <openssl/bn.h>
+#if OPENSSL_VERSION_MAJOR >= 3 && !defined(OPENSSL_IS_BORINGSSL)
+#include <openssl/core_names.h>
+#endif
 #include <openssl/ec.h>
 #include <openssl/ecdh.h>
 
@@ -470,7 +473,14 @@ bool ExportJWKEcKey(Environment* env,
   CHECK_EQ(m_pkey.id(), EVP_PKEY_EC);
 
   const EC_KEY* ec = m_pkey;
-  CHECK_NOT_NULL(ec);
+  if (ec == nullptr) {
+    if (key.GetKeyType() == kKeyTypePrivate && key.IsStoreBacked()) {
+      THROW_ERR_CRYPTO_KEY_NOT_EXPORTABLE(env);
+    } else {
+      THROW_ERR_CRYPTO_OPERATION_FAILED(env, "Failed to export EC key");
+    }
+    return false;
+  }
 
   const auto pub = ECKeyPointer::GetPublicKey(ec);
   const auto group = ECKeyPointer::GetGroup(ec);
@@ -752,7 +762,27 @@ bool GetEcKeyDetail(Environment* env,
   CHECK_EQ(m_pkey.id(), EVP_PKEY_EC);
 
   const EC_KEY* ec = m_pkey;
-  CHECK_NOT_NULL(ec);
+  if (ec == nullptr) {
+#if OPENSSL_VERSION_MAJOR >= 3 && !defined(OPENSSL_IS_BORINGSSL)
+    char group_name[80];
+    size_t group_name_len = 0;
+    if (EVP_PKEY_get_utf8_string_param(m_pkey.get(),
+                                       OSSL_PKEY_PARAM_GROUP_NAME,
+                                       group_name,
+                                       sizeof(group_name),
+                                       &group_name_len) != 1) {
+      return false;
+    }
+
+    return target
+        ->Set(env->context(),
+              env->named_curve_string(),
+              OneByteString(env->isolate(), group_name, group_name_len))
+        .IsJust();
+#else
+    return false;
+#endif
+  }
 
   const auto group = ECKeyPointer::GetGroup(ec);
   int nid = EC_GROUP_get_curve_name(group);

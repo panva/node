@@ -162,6 +162,7 @@ jobs:
         name: Build and test Node.js
         with:
           cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          pkcs11-store-provider-test: 'true'
           extra-nix-flags: |
             --arg useSeparateDerivationForV8 true \
             ${{ endsWith(matrix.system, '-darwin') && '--arg withAmaro false --arg withLief false --arg withSQLite false --arg withFFI false --arg extraConfigFlags ''["--without-inspector" "--without-node-options"]'' \' || '\' }}
@@ -229,9 +230,24 @@ jobs:
           echo "matrix=$(
             nix-instantiate --eval --strict --json -E "
               let
-                matrix = import $TAR_DIR/tools/nix/openssl-matrix.nix {};
+                pkgs = import $TAR_DIR/tools/nix/pkgs.nix {
+                  config.permittedInsecurePackages = [ \"openssl-1.1.1w\" ];
+                };
+                matrix = import $TAR_DIR/tools/nix/openssl-matrix.nix {
+                  inherit pkgs;
+                };
               in
-              builtins.map (attr: { inherit attr; inherit (builtins.getAttr attr matrix) name; }) (builtins.attrNames matrix)
+              builtins.map (attr:
+                let
+                  openssl = builtins.getAttr attr matrix;
+                in
+                {
+                  inherit attr;
+                  inherit (openssl) name;
+                  pkcs11StoreProviderTest =
+                    openssl.pname == \"openssl\" &&
+                    pkgs.lib.versionAtLeast openssl.version \"3\";
+                }) (builtins.attrNames matrix)
             "
           )" >> "$GITHUB_OUTPUT"
 
@@ -267,6 +283,7 @@ jobs:
         name: Build and test Node.js
         with:
           cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          pkcs11-store-provider-test: ${{ matrix.openssl.pkcs11StoreProviderTest }}
           # Override just the `openssl` attr of the default shared-lib set with
           # the matrix-selected nixpkgs attribute (e.g. `openssl_3_6`). All
           # other shared libs (brotli, cares, libuv, …) keep their defaults.
