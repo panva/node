@@ -1344,12 +1344,13 @@ void KeyObjectHandle::InitPrivateKeyFromStore(
   }
 
   void* ui_data = has_passphrase ? &passphrase_ptr : nullptr;
+  const OSSL_PARAM store_params[] = {OSSL_PARAM_END};
   OSSLStoreCtxPointer store(OSSL_STORE_open_ex(*uri_value,
                                                nullptr,
                                                store_propq.c_str(),
                                                ui_method.get(),
                                                ui_data,
-                                               nullptr,
+                                               store_params,
                                                nullptr,
                                                nullptr));
   if (!store) {
@@ -1525,9 +1526,14 @@ bool KeyObjectHandle::CheckEcKeyData() const {
   MarkPopErrorOnReturn mark_pop_error_on_return;
 
   const auto& key = data_.GetAsymmetricKey();
-  EVPKeyCtxPointer ctx = key.newCtx();
-  CHECK(ctx);
   CHECK_EQ(key.id(), EVP_PKEY_EC);
+
+  if (data_.GetKeyType() == kKeyTypePrivate && data_.IsStoreBacked()) {
+    return true;
+  }
+
+  EVPKeyCtxPointer ctx = key.newCtx();
+  if (!ctx) return false;
 
   return data_.GetKeyType() == kKeyTypePrivate ? ctx.privateCheck()
                                                : ctx.publicCheck();

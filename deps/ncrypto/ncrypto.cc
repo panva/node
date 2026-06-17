@@ -2832,9 +2832,28 @@ std::optional<uint32_t> EVPKeyPointer::getBytesOfRS() const {
   if (id == EVP_PKEY_DSA) {
     const DSA* dsa_key = EVP_PKEY_get0_DSA(get());
     // Both r and s are computed mod q, so their width is limited by that of q.
-    bits = BignumPointer::GetBitCount(DSA_get0_q(dsa_key));
+    if (dsa_key != nullptr) {
+      bits = BignumPointer::GetBitCount(DSA_get0_q(dsa_key));
+#if OPENSSL_VERSION_MAJOR >= 3 && !defined(OPENSSL_IS_BORINGSSL)
+    } else if (EVP_PKEY_get_int_param(
+                   get(), OSSL_PKEY_PARAM_FFC_QBITS, &bits) != 1) {
+      return std::nullopt;
+#endif
+    } else {
+      return std::nullopt;
+    }
   } else if (id == EVP_PKEY_EC) {
-    bits = EC_GROUP_order_bits(ECKeyPointer::GetGroup(*this));
+    const EC_KEY* ec_key = EVP_PKEY_get0_EC_KEY(get());
+    if (ec_key != nullptr) {
+      bits = EC_GROUP_order_bits(ECKeyPointer::GetGroup(ec_key));
+#if OPENSSL_VERSION_MAJOR >= 3 && !defined(OPENSSL_IS_BORINGSSL)
+    } else if (EVP_PKEY_get_int_param(
+                   get(), OSSL_PKEY_PARAM_BITS, &bits) != 1) {
+      return std::nullopt;
+#endif
+    } else {
+      return std::nullopt;
+    }
   } else {
     return std::nullopt;
   }

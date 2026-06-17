@@ -113,6 +113,18 @@ void* StoreOpenEx(void* provctx,
   return StoreOpen(provctx, uri);
 }
 
+const OSSL_PARAM* StoreSettableCtxParams(void* /* provctx */) {
+  static const OSSL_PARAM params[] = {
+      OSSL_PARAM_utf8_string(OSSL_STORE_PARAM_PROPERTIES, nullptr, 0),
+      OSSL_PARAM_END,
+  };
+  return params;
+}
+
+int StoreSetCtxParams(void* /* loaderctx */, const OSSL_PARAM* /* params */) {
+  return 1;
+}
+
 int StoreLoad(void* loaderctx,
               OSSL_CALLBACK* object_cb,
               void* object_cbarg,
@@ -233,11 +245,17 @@ const char* RSAQueryOperationName(int /* operation_id */) {
 
 const OSSL_DISPATCH store_functions[] = {
     {OSSL_FUNC_STORE_OPEN, reinterpret_cast<void (*)(void)>(StoreOpen)},
+#ifdef OSSL_FUNC_STORE_OPEN_EX
     {OSSL_FUNC_STORE_OPEN_EX, reinterpret_cast<void (*)(void)>(StoreOpenEx)},
+#endif
+    {OSSL_FUNC_STORE_SETTABLE_CTX_PARAMS,
+     reinterpret_cast<void (*)(void)>(StoreSettableCtxParams)},
+    {OSSL_FUNC_STORE_SET_CTX_PARAMS,
+     reinterpret_cast<void (*)(void)>(StoreSetCtxParams)},
     {OSSL_FUNC_STORE_LOAD, reinterpret_cast<void (*)(void)>(StoreLoad)},
     {OSSL_FUNC_STORE_EOF, reinterpret_cast<void (*)(void)>(StoreEof)},
     {OSSL_FUNC_STORE_CLOSE, reinterpret_cast<void (*)(void)>(StoreClose)},
-    OSSL_DISPATCH_END,
+    {0, nullptr},
 };
 
 const OSSL_DISPATCH keymgmt_functions[] = {
@@ -252,7 +270,7 @@ const OSSL_DISPATCH keymgmt_functions[] = {
     {OSSL_FUNC_KEYMGMT_EXPORT_TYPES,
      reinterpret_cast<void (*)(void)>(KeyExportTypes)},
     {OSSL_FUNC_KEYMGMT_DUP, reinterpret_cast<void (*)(void)>(KeyDup)},
-    OSSL_DISPATCH_END,
+    {0, nullptr},
 };
 
 const OSSL_DISPATCH ec_keymgmt_functions[] = {
@@ -269,7 +287,7 @@ const OSSL_DISPATCH ec_keymgmt_functions[] = {
     {OSSL_FUNC_KEYMGMT_DUP, reinterpret_cast<void (*)(void)>(KeyDup)},
     {OSSL_FUNC_KEYMGMT_QUERY_OPERATION_NAME,
      reinterpret_cast<void (*)(void)>(ECQueryOperationName)},
-    OSSL_DISPATCH_END,
+    {0, nullptr},
 };
 
 const OSSL_DISPATCH rsa_keymgmt_functions[] = {
@@ -286,7 +304,7 @@ const OSSL_DISPATCH rsa_keymgmt_functions[] = {
     {OSSL_FUNC_KEYMGMT_DUP, reinterpret_cast<void (*)(void)>(KeyDup)},
     {OSSL_FUNC_KEYMGMT_QUERY_OPERATION_NAME,
      reinterpret_cast<void (*)(void)>(RSAQueryOperationName)},
-    OSSL_DISPATCH_END,
+    {0, nullptr},
 };
 
 const OSSL_ALGORITHM store_algs[] = {
@@ -328,7 +346,7 @@ const OSSL_DISPATCH provider_functions[] = {
         OSSL_FUNC_PROVIDER_QUERY_OPERATION,
         reinterpret_cast<void (*)(void)>(QueryOperation),
     },
-    OSSL_DISPATCH_END,
+    {0, nullptr},
 };
 
 }  // namespace
