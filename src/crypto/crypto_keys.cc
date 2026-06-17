@@ -57,6 +57,8 @@ using v8::Value;
 
 namespace crypto {
 namespace {
+constexpr int kKeyFormatStore = -1;
+
 Maybe<EVPKeyPointer::AsymmetricKeyEncodingConfig> GetKeyFormatAndTypeFromJs(
     const FunctionCallbackInfo<Value>& args,
     unsigned int* offset,
@@ -1129,8 +1131,6 @@ Local<Function> KeyObjectHandle::Initialize(Environment* env) {
         KeyObjectHandle::kInternalFieldCount);
 
     SetProtoMethod(isolate, templ, "init", Init);
-    SetProtoMethod(
-        isolate, templ, "initPrivateKeyFromStore", InitPrivateKeyFromStore);
     SetProtoMethodNoSideEffect(isolate, templ, "getKeyType", GetKeyType);
     SetProtoMethodNoSideEffect(isolate, templ, "isStoreBacked", IsStoreBacked);
     SetProtoMethodNoSideEffect(
@@ -1160,7 +1160,6 @@ void KeyObjectHandle::RegisterExternalReferences(
     ExternalReferenceRegistry* registry) {
   registry->Register(New);
   registry->Register(Init);
-  registry->Register(InitPrivateKeyFromStore);
   registry->Register(GetKeyType);
   registry->Register(IsStoreBacked);
   registry->Register(GetSymmetricKeySize);
@@ -1208,6 +1207,10 @@ KeyObjectHandle::KeyObjectHandle(Environment* env,
   MakeWeak();
 }
 
+static KeyObjectData LoadPrivateKeyFromStore(Environment* env,
+                                             Local<Value> uri_arg,
+                                             Local<Value> passphrase_arg);
+
 void KeyObjectHandle::Init(const FunctionCallbackInfo<Value>& args) {
   KeyObjectHandle* key;
   ASSIGN_OR_RETURN_UNWRAP(&key, args.This());
@@ -1243,8 +1246,18 @@ void KeyObjectHandle::Init(const FunctionCallbackInfo<Value>& args) {
     // args: [keyType, buffer/object, formatInt, typeString/null,
     //        passphrase/null, namedCurve/null]
     if (args[2]->IsInt32()) {
-      auto format = static_cast<EVPKeyPointer::PKFormatType>(
-          args[2].As<Int32>()->Value());
+      int format_int = args[2].As<Int32>()->Value();
+      if (format_int == kKeyFormatStore) {
+        if (type != kKeyTypePrivate) {
+          THROW_ERR_INVALID_ARG_VALUE(
+              env, "OpenSSL STORE can only be used for private keys");
+          return;
+        }
+        key->data_ = LoadPrivateKeyFromStore(env, args[1], args[4]);
+        return;
+      }
+      auto format =
+          static_cast<EVPKeyPointer::PKFormatType>(format_int);
       if (format == EVPKeyPointer::PKFormatType::RAW_PUBLIC ||
           format == EVPKeyPointer::PKFormatType::RAW_PRIVATE ||
           format == EVPKeyPointer::PKFormatType::RAW_SEED) {
@@ -1293,24 +1306,22 @@ void KeyObjectHandle::Init(const FunctionCallbackInfo<Value>& args) {
   }
 }
 
-void KeyObjectHandle::InitPrivateKeyFromStore(
-    const FunctionCallbackInfo<Value>& args) {
-  Environment* env = Environment::GetCurrent(args);
-  CHECK_EQ(args.Length(), 2);
-  CHECK(args[0]->IsString());
-  CHECK(args[1]->IsNull() || IsAnyBufferSource(args[1]));
+static KeyObjectData LoadPrivateKeyFromStore(Environment* env,
+                                             Local<Value> uri_arg,
+                                             Local<Value> passphrase_arg) {
+  CHECK(uri_arg->IsString());
+  CHECK(passphrase_arg->IsNull() || IsAnyBufferSource(passphrase_arg));
 
-  Utf8Value uri_value(env->isolate(), args[0]);
+  Utf8Value uri_value(env->isolate(), uri_arg);
   std::string_view uri(*uri_value, uri_value.length());
   THROW_IF_INSUFFICIENT_PERMISSIONS(
-      env, permission::PermissionScope::kCryptoStore, uri);
+      env, permission::PermissionScope::kCryptoStore, uri, {});
 
 #if OPENSSL_VERSION_MAJOR < 3 || defined(OPENSSL_IS_BORINGSSL)
   THROW_ERR_CRYPTO_OPERATION_FAILED(
       env, "OpenSSL STORE providers are not supported by this OpenSSL build");
+  return {};
 #else
-  KeyObjectHandle* key;
-  ASSIGN_OR_RETURN_UNWRAP(&key, args.This());
   MarkPopErrorOnReturn mark_pop_error_on_return;
 
   std::string store_propq;
@@ -1321,18 +1332,18 @@ void KeyObjectHandle::InitPrivateKeyFromStore(
       THROW_ERR_INVALID_ARG_VALUE(
           env,
           "The \"url\" argument must identify an OpenSSL STORE provider URL");
-      return;
+      return {};
     case StoreProviderStatus::NotFound:
       ThrowCryptoError(env,
                        mark_pop_error_on_return.peekError(),
                        "Failed to open OpenSSL STORE");
-      return;
+      return {};
   }
 
   ByteSource passphrase;
-  bool has_passphrase = !args[1]->IsNull();
+  bool has_passphrase = !passphrase_arg->IsNull();
   if (has_passphrase) {
-    passphrase = ByteSource::FromStringOrBuffer(env, args[1]);
+    passphrase = ByteSource::FromStringOrBuffer(env, passphrase_arg);
   }
   const ByteSource* passphrase_ptr = has_passphrase ? &passphrase : nullptr;
   UIMethodPointer ui_method(UI_UTIL_wrap_read_pem_callback(
@@ -1340,7 +1351,7 @@ void KeyObjectHandle::InitPrivateKeyFromStore(
   if (!ui_method) {
     THROW_ERR_CRYPTO_OPERATION_FAILED(
         env, "Unable to initialize OpenSSL STORE password callback");
-    return;
+    return {};
   }
 
   void* ui_data = has_passphrase ? &passphrase_ptr : nullptr;
@@ -1357,14 +1368,14 @@ void KeyObjectHandle::InitPrivateKeyFromStore(
     ThrowCryptoError(env,
                      mark_pop_error_on_return.peekError(),
                      "Failed to open OpenSSL STORE");
-    return;
+    return {};
   }
 
   if (OSSL_STORE_expect(store.get(), OSSL_STORE_INFO_PKEY) != 1) {
     ThrowCryptoError(env,
                      mark_pop_error_on_return.peekError(),
                      "Failed to set OpenSSL STORE expectation");
-    return;
+    return {};
   }
 
   while (OSSL_STORE_eof(store.get()) != 1) {
@@ -1374,7 +1385,7 @@ void KeyObjectHandle::InitPrivateKeyFromStore(
         ThrowCryptoError(env,
                          mark_pop_error_on_return.peekError(),
                          "Failed to load key from OpenSSL STORE");
-        return;
+        return {};
       }
       break;
     }
@@ -1388,16 +1399,16 @@ void KeyObjectHandle::InitPrivateKeyFromStore(
       ThrowCryptoError(env,
                        mark_pop_error_on_return.peekError(),
                        "Failed to extract key from OpenSSL STORE");
-      return;
+      return {};
     }
 
-    key->data_ = KeyObjectData::CreateAsymmetric(
+    return KeyObjectData::CreateAsymmetric(
         kKeyTypePrivate, EVPKeyPointer(pkey), true);
-    return;
   }
 
   THROW_ERR_CRYPTO_OPERATION_FAILED(
       env, "OpenSSL STORE did not return a private key");
+  return {};
 #endif
 }
 
@@ -2324,6 +2335,7 @@ void Initialize(Environment* env, Local<Object> target) {
   NODE_DEFINE_CONSTANT(target, kKeyFormatRawPublic);
   NODE_DEFINE_CONSTANT(target, kKeyFormatRawPrivate);
   NODE_DEFINE_CONSTANT(target, kKeyFormatRawSeed);
+  NODE_DEFINE_CONSTANT(target, kKeyFormatStore);
   NODE_DEFINE_CONSTANT(target, kKeyTypeSecret);
   NODE_DEFINE_CONSTANT(target, kKeyTypePublic);
   NODE_DEFINE_CONSTANT(target, kKeyTypePrivate);

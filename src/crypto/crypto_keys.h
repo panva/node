@@ -159,8 +159,6 @@ class KeyObjectHandle : public BaseObject {
   static void New(const v8::FunctionCallbackInfo<v8::Value>& args);
 
   static void Init(const v8::FunctionCallbackInfo<v8::Value>& args);
-  static void InitPrivateKeyFromStore(
-      const v8::FunctionCallbackInfo<v8::Value>& args);
   static void GetKeyType(const v8::FunctionCallbackInfo<v8::Value>& args);
   static void IsStoreBacked(const v8::FunctionCallbackInfo<v8::Value>& args);
   static void GetKeyDetail(const v8::FunctionCallbackInfo<v8::Value>& args);
