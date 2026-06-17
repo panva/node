@@ -2847,8 +2847,8 @@ std::optional<uint32_t> EVPKeyPointer::getBytesOfRS() const {
     if (ec_key != nullptr) {
       bits = EC_GROUP_order_bits(ECKeyPointer::GetGroup(ec_key));
 #if OPENSSL_VERSION_MAJOR >= 3 && !defined(OPENSSL_IS_BORINGSSL)
-    } else if (EVP_PKEY_get_int_param(
-                   get(), OSSL_PKEY_PARAM_BITS, &bits) != 1) {
+    } else if (EVP_PKEY_get_int_param(get(), OSSL_PKEY_PARAM_BITS, &bits) !=
+               1) {
       return std::nullopt;
 #endif
     } else {
