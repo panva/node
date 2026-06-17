@@ -1256,8 +1256,7 @@ void KeyObjectHandle::Init(const FunctionCallbackInfo<Value>& args) {
         key->data_ = LoadPrivateKeyFromStore(env, args[1], args[4]);
         return;
       }
-      auto format =
-          static_cast<EVPKeyPointer::PKFormatType>(format_int);
+      auto format = static_cast<EVPKeyPointer::PKFormatType>(format_int);
       if (format == EVPKeyPointer::PKFormatType::RAW_PUBLIC ||
           format == EVPKeyPointer::PKFormatType::RAW_PRIVATE ||
           format == EVPKeyPointer::PKFormatType::RAW_SEED) {
