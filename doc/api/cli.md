@@ -191,6 +191,28 @@ This behavior also applies to `child_process.spawn()`, but in that case, the
 flags are propagated via the `NODE_OPTIONS` environment variable rather than
 directly through the process arguments.
 
+### `--allow-crypto-store`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+> Stability: 1.1 - Active development
+
+When using the [Permission Model][], the process will not be able to load
+private keys from OpenSSL STORE provider URLs by default. Attempts to do so
+will throw an `ERR_ACCESS_DENIED` unless the user explicitly passes the
+`--allow-crypto-store` flag when starting Node.js.
+
+This permission only applies to OpenSSL STORE provider URLs accepted by
+[`crypto.createPrivateKey()`][]. It does not grant access to Node.js file
+system or network APIs. Configured OpenSSL providers may still perform their
+own I/O, credential handling, hardware access, or daemon communication outside
+of Node.js `fs` and `net` permission scopes.
+
+Node.js does not pass URL input to OpenSSL's built-in `default` or `base` STORE
+loaders, so local file STORE loading is not exposed through this API.
+
 ### `--allow-ffi`
 
 <!-- YAML
@@ -328,28 +350,6 @@ Error: connect ERR_ACCESS_DENIED Access to this API has been restricted. Use --a
   code: 'ERR_ACCESS_DENIED',
 }
 ```
-
-### `--allow-crypto-store`
-
-<!-- YAML
-added: REPLACEME
--->
-
-> Stability: 1.1 - Active development
-
-When using the [Permission Model][], the process will not be able to load
-private keys from OpenSSL STORE provider URLs by default. Attempts to do so
-will throw an `ERR_ACCESS_DENIED` unless the user explicitly passes the
-`--allow-crypto-store` flag when starting Node.js.
-
-This permission only applies to OpenSSL STORE provider URLs accepted by
-[`crypto.createPrivateKey()`][]. It does not grant access to Node.js file
-system or network APIs. Configured OpenSSL providers may still perform their
-own I/O, credential handling, hardware access, or daemon communication outside
-of Node.js `fs` and `net` permission scopes.
-
-Node.js does not pass URL input to OpenSSL's built-in `default` or `base` STORE
-loaders, so local file STORE loading is not exposed through this API.
 
 ### `--allow-net`
 

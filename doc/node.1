@@ -135,6 +135,20 @@ This behavior also applies to \fBchild_process.spawn()\fR, but in that case, the
 flags are propagated via the \fBNODE_OPTIONS\fR environment variable rather than
 directly through the process arguments.
 .
+.It Fl -allow-crypto-store
+When using the Permission Model, the process will not be able to load private
+keys from OpenSSL STORE provider URLs by default.
+Attempts to do so will throw an \fBERR_ACCESS_DENIED\fR unless the user
+explicitly passes the \fB--allow-crypto-store\fR flag when starting Node.js.
+This permission only applies to OpenSSL STORE provider URLs accepted by
+\fBcrypto.createPrivateKey()\fR. It does not grant access to Node.js file system
+or network APIs. Configured OpenSSL providers may still perform their own I/O,
+credential handling, hardware access, or daemon communication outside of
+Node.js \fBfs\fR and \fBnet\fR permission scopes.
+Node.js does not pass URL input to OpenSSL's built-in \fBdefault\fR or
+\fBbase\fR STORE loaders, so local file STORE loading is not exposed through
+this API.
+.
 .It Fl -allow-ffi
 When using the Permission Model, the process will not be able to use
 \fBnode:ffi\fR by default.
@@ -1152,6 +1166,8 @@ File System - manageable through
 .It
 Network - manageable through \fB--allow-net\fR flag
 .It
+OpenSSL STORE - manageable through \fB--allow-crypto-store\fR flag
+.It
 Child Process - manageable through \fB--allow-child-process\fR flag
 .It
 Worker Threads - manageable through \fB--allow-worker\fR flag
@@ -1874,6 +1890,8 @@ one is included in the list below.
 \fB--allow-addons\fR
 .It
 \fB--allow-child-process\fR
+.It
+\fB--allow-crypto-store\fR
 .It
 \fB--allow-ffi\fR
 .It
