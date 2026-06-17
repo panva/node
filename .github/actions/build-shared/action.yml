@@ -59,12 +59,47 @@ runs:
       run: |
         dev_tools='[]'
         if [ "${{ inputs.pkcs11-store-provider-test }}" = "true" ]; then
-          dev_tools='with import <nixpkgs> {}; [ pkcs11-provider softhsm opensc ]'
+          # The external STORE provider test dlopens both the OpenSSL provider
+          # and the PKCS#11 module into the test Node.js process. Build both
+          # against the same OpenSSL as the shared-OpenSSL matrix entry to avoid
+          # mixing libcrypto ABIs from the nixpkgs default and the matrix build.
+          # Keep this in sync with the pkcs11StoreProviderTest gate in
+          # .github/workflows/test-shared.yml.
+          openssl_attr="${OPENSSL_ATTR:-openssl_3_5}"
+          shared_openssl="(import $TAR_DIR/tools/nix/openssl-matrix.nix { inherit pkgs; }).$openssl_attr"
+          export NODE_TEST_PKCS11_PROVIDER_PACKAGE="$(
+            nix-build \
+              -I "nixpkgs=$TAR_DIR/tools/nix/pkgs.nix" \
+              --no-out-link \
+              -E "
+                let
+                  pkgs = import <nixpkgs> {};
+                  openssl = $shared_openssl;
+                in (pkgs.pkcs11-provider.override { inherit openssl; }).overrideAttrs (_: {
+                  doCheck = false;
+                })
+              "
+          )"
+          export NODE_TEST_SOFTHSM_PACKAGE="$(
+            nix-build \
+              -I "nixpkgs=$TAR_DIR/tools/nix/pkgs.nix" \
+              --no-out-link \
+              -E "
+                let
+                  pkgs = import <nixpkgs> {};
+                  openssl = $shared_openssl;
+                in (pkgs.softhsm.override { inherit openssl; }).overrideAttrs (_: {
+                  doCheck = false;
+                })
+              "
+          )"
+          dev_tools='with import <nixpkgs> {}; [ opensc ]'
         fi
 
         nix-shell \
           -I "nixpkgs=$TAR_DIR/tools/nix/pkgs.nix" \
           --pure --keep TAR_DIR --keep FLAKY_TESTS \
+          --keep NODE_TEST_PKCS11_PROVIDER_PACKAGE --keep NODE_TEST_SOFTHSM_PACKAGE \
           --keep SCCACHE_GHA_ENABLED --keep ACTIONS_CACHE_SERVICE_V2 --keep ACTIONS_RESULTS_URL --keep ACTIONS_RUNTIME_TOKEN \
           --arg loadJSBuiltinsDynamically false \
           --arg ccache "${NIX_SCCACHE:-null}" \
@@ -74,10 +109,11 @@ runs:
           --run '
               set -e
               if [ "${{ inputs.pkcs11-store-provider-test }}" = "true" ]; then
-                provider=$(find /nix/store \( -path "*/lib/ossl-modules/pkcs11.so" -o -path "*/lib/ossl-modules/pkcs11.dylib" \) -print -quit)
-                softhsm=$(find /nix/store -path "*/lib/softhsm/libsofthsm2.so" -print -quit)
+                provider=$(find "$NODE_TEST_PKCS11_PROVIDER_PACKAGE" \( -path "*/lib/ossl-modules/pkcs11.so" -o -path "*/lib/ossl-modules/pkcs11.dylib" \) -print -quit)
+                softhsm=$(find "$NODE_TEST_SOFTHSM_PACKAGE" -path "*/lib/softhsm/libsofthsm2.so" -print -quit)
                 test -n "$provider"
                 test -n "$softhsm"
+                export PATH="$NODE_TEST_SOFTHSM_PACKAGE/bin:$PATH"
                 export NODE_TEST_PKCS11_PROVIDER=1
                 export NODE_TEST_PKCS11_PROVIDER_MODULE="$provider"
                 export NODE_TEST_SOFTHSM_MODULE="$softhsm"

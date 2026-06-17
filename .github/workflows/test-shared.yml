@@ -244,9 +244,16 @@ jobs:
                 {
                   inherit attr;
                   inherit (openssl) name;
+                  # The real pkcs11 STORE test needs pkcs11-provider and
+                  # SoftHSM built against the same OpenSSL as Node. The pinned
+                  # SoftHSM package currently builds against OpenSSL 3.x but
+                  # not OpenSSL 4.x, so keep this to the known-working range and
+                  # revisit when https://github.com/softhsm/SoftHSMv2/issues/868
+                  # is fixed and the pinned nixpkgs provider stack supports 4.x.
                   pkcs11StoreProviderTest =
                     openssl.pname == \"openssl\" &&
-                    pkgs.lib.versionAtLeast openssl.version \"3\";
+                    pkgs.lib.versionAtLeast openssl.version \"3\" &&
+                    pkgs.lib.versionOlder openssl.version \"4\";
                 }) (builtins.attrNames matrix)
             "
           )" >> "$GITHUB_OUTPUT"
