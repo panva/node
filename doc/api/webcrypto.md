@@ -2489,9 +2489,7 @@ added:
  - v24.15.0
 -->
 
-* Type: {number}
-
-The length of the output in bytes. This must be a positive integer.
+* Type: {number} represents the requested output length in bits.
 
 #### `kmacParams.customization`
 

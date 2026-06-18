@@ -263,9 +263,17 @@ if (getHashes().includes('shake128')) {
       new Uint8Array(0),
     );
 
-    await assert.rejects(subtle.digest({ name: 'cSHAKE128', outputLength: 7 }, Buffer.alloc(1)), {
-      name: 'NotSupportedError',
-      message: 'Unsupported CShakeParams outputLength',
-    });
+    const digest = await subtle.digest({ name: 'cSHAKE128', outputLength: 7 }, Buffer.alloc(1));
+    assert.strictEqual(digest.byteLength, 1);
+    assert.strictEqual(new Uint8Array(digest)[0] & 0b00000001, 0);
+
+    await assert.rejects(
+      subtle.digest(
+        { name: 'cSHAKE128', outputLength: 0xffffffff },
+        Buffer.alloc(1)),
+      {
+        name: 'OperationError',
+        message: 'Invalid CShakeParams outputLength',
+      });
   })().then(common.mustCall());
 }
