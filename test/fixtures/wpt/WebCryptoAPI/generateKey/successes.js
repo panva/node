@@ -38,6 +38,9 @@ function run_test(algorithmNames, slowTest) {
         {name: "ML-KEM-512", resultType: "CryptoKeyPair", usages: ["decapsulateBits", "decapsulateKey", "encapsulateBits", "encapsulateKey"], mandatoryUsages: ["decapsulateBits", "decapsulateKey"]},
         {name: "ML-KEM-768", resultType: "CryptoKeyPair", usages: ["decapsulateBits", "decapsulateKey", "encapsulateBits", "encapsulateKey"], mandatoryUsages: ["decapsulateBits", "decapsulateKey"]},
         {name: "ML-KEM-1024", resultType: "CryptoKeyPair", usages: ["decapsulateBits", "decapsulateKey", "encapsulateBits", "encapsulateKey"], mandatoryUsages: ["decapsulateBits", "decapsulateKey"]},
+        {name: "MLKEM768-P256", resultType: "CryptoKeyPair", usages: ["decapsulateBits", "decapsulateKey", "encapsulateBits", "encapsulateKey"], mandatoryUsages: ["decapsulateBits", "decapsulateKey"]},
+        {name: "MLKEM768-X25519", resultType: "CryptoKeyPair", usages: ["decapsulateBits", "decapsulateKey", "encapsulateBits", "encapsulateKey"], mandatoryUsages: ["decapsulateBits", "decapsulateKey"]},
+        {name: "MLKEM1024-P384", resultType: "CryptoKeyPair", usages: ["decapsulateBits", "decapsulateKey", "encapsulateBits", "encapsulateKey"], mandatoryUsages: ["decapsulateBits", "decapsulateKey"]},
         {name: "X25519",   resultType: "CryptoKeyPair", usages: ["deriveKey", "deriveBits"], mandatoryUsages: ["deriveKey", "deriveBits"]},
         {name: "X448",     resultType: "CryptoKeyPair", usages: ["deriveKey", "deriveBits"], mandatoryUsages: ["deriveKey", "deriveBits"]},
         {name: "KMAC128",  resultType: CryptoKey, usages: ["sign", "verify"], mandatoryUsages: []},
@@ -84,22 +87,18 @@ function run_test(algorithmNames, slowTest) {
                 assert_unreached("generateKey threw an unexpected error: " + err.toString());
             })
             .then(async function (result) {
-                // TODO: remove this block to enable ML-KEM JWK when its definition is done in IETF JOSE WG
-                if (result.publicKey?.algorithm.name.startsWith('ML-KEM')) {
-                    const promises = [
-                        subtle.exportKey('spki', result.publicKey),
-                        extractable ? subtle.exportKey('pkcs8', result.privateKey) : undefined,
-                        subtle.exportKey('raw-public', result.publicKey),
-                    ];
-                    if (extractable)
-                        promises.push(subtle.exportKey('raw-seed', result.privateKey));
-                } else if (resultType === "CryptoKeyPair") {
+                if (resultType === "CryptoKeyPair") {
+                    const isHybridKem = result.publicKey.algorithm.name.startsWith('MLKEM');
                     const promises = [
                         subtle.exportKey('jwk', result.publicKey),
                         extractable ? subtle.exportKey('jwk', result.privateKey) : undefined,
-                        subtle.exportKey('spki', result.publicKey),
-                        extractable ? subtle.exportKey('pkcs8', result.privateKey) : undefined,
                     ];
+
+                    if (!isHybridKem) {
+                        promises.push(subtle.exportKey('spki', result.publicKey));
+                        if (extractable)
+                            promises.push(subtle.exportKey('pkcs8', result.privateKey));
+                    }
 
                     switch (result.publicKey.algorithm.name.substring(0, 2)) {
                         case 'ML':
