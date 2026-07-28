@@ -95,6 +95,12 @@ const good = [
 const bad = [
   { N: 1, p: 1, r: 1 },         // N < 2
   { N: 3, p: 1, r: 1 },         // Not power of 2.
+  { N: 0, p: 1, r: 1 },         // N = 0 is not silently replaced by the default.
+  { N: 16, p: 0, r: 1 },        // p = 0.
+  { N: 16, p: 1, r: 0 },        // r = 0.
+  { cost: 0, parallelization: 1, blockSize: 1 },   // cost alias = 0.
+  { cost: 16, parallelization: 0, blockSize: 1 },  // Parallelization alias = 0.
+  { cost: 16, parallelization: 1, blockSize: 0 },  // blockSize alias = 0.
 ];
 
 // Test vectors that contain incompatible options.
@@ -176,6 +182,14 @@ for (const options of bad) {
                 expected);
   assert.throws(() => crypto.scryptSync('pass', 'salt', 1, options),
                 expected);
+}
+
+{
+  // maxmem: 0 remains valid and selects the default memory limit, so it must
+  // produce the same result as omitting maxmem entirely.
+  const withZero = crypto.scryptSync('pass', 'salt', 16, { maxmem: 0 });
+  const withDefault = crypto.scryptSync('pass', 'salt', 16);
+  assert.deepStrictEqual(withZero, withDefault);
 }
 
 for (const options of incompatibleOptions) {
