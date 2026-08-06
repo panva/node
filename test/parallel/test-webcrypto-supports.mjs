@@ -4,10 +4,8 @@ if (!common.hasCrypto)
   common.skip('missing crypto');
 
 import * as assert from 'node:assert';
-import { hasFIPS } from '../common/crypto.js';
-
-if (hasFIPS(3))
-  common.skip('SubtleCrypto.supports() does not reflect FIPS provider availability');
+import * as crypto from 'node:crypto';
+import { hasFIPS, hasOpenSSL } from '../common/crypto.js';
 
 const { SubtleCrypto } = globalThis;
 
@@ -109,4 +107,15 @@ for (const operation of Object.keys(vectors)) {
       )
     );
   }
+}
+
+if (hasOpenSSL(3) && !hasFIPS(3) &&
+    !process.features.openssl_is_boringssl) {
+  const aesOcb = { name: 'AES-OCB', iv: Buffer.alloc(12) };
+  const zeroLengthKmac = { name: 'KMAC128', outputLength: 0 };
+  assert.strictEqual(SubtleCrypto.supports('encrypt', aesOcb), true);
+  assert.strictEqual(SubtleCrypto.supports('sign', zeroLengthKmac), true);
+  crypto.setFips(1);
+  assert.strictEqual(SubtleCrypto.supports('encrypt', aesOcb), false);
+  assert.strictEqual(SubtleCrypto.supports('sign', zeroLengthKmac), true);
 }

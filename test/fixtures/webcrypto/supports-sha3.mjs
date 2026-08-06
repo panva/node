@@ -1,16 +1,25 @@
+import { createPublicKey } from 'node:crypto';
+
+import { hasFIPS } from '../../common/crypto.js';
+import fixtures from '../../common/fixtures.js';
+
 const { subtle } = globalThis.crypto;
 
 const boringSSL = process.features.openssl_is_boringssl;
+const supportsXCurves = !hasFIPS(3, 5);
 
 const RSA_KEY_GEN = {
   modulusLength: 2048,
   publicExponent: new Uint8Array([1, 0, 1])
 };
 
-const [ECDH, X25519] = await Promise.all([
-  subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits', 'deriveKey']),
-  subtle.generateKey('X25519', false, ['deriveBits', 'deriveKey']),
-]);
+const ECDH = await subtle.generateKey(
+  { name: 'ECDH', namedCurve: 'P-256' },
+  false,
+  ['deriveBits', 'deriveKey']);
+const x25519PublicKey = createPublicKey(
+  fixtures.readKey('x25519_public.pem'))
+  .toCryptoKey('X25519', false, []);
 
 export const vectors = {
   'digest': [
@@ -51,8 +60,8 @@ export const vectors = {
     [false,
      { name: 'PBKDF2', hash: 'SHA3-256', salt: Buffer.alloc(0), iterations: 1 },
      'HKDF'],
-    [!boringSSL,
-     { name: 'X25519', public: X25519.publicKey },
+    [!boringSSL && supportsXCurves,
+     { name: 'X25519', public: x25519PublicKey },
      { name: 'HMAC', hash: 'SHA3-256', length: 256 }],
     [!boringSSL,
      { name: 'ECDH', public: ECDH.publicKey },
@@ -67,7 +76,7 @@ export const vectors = {
      { name: 'PBKDF2', hash: 'SHA3-256', salt: Buffer.alloc(0), iterations: 1 },
      { name: 'HMAC', hash: 'SHA3-256' }],
     [false,
-     { name: 'X25519', public: X25519.publicKey },
+     { name: 'X25519', public: x25519PublicKey },
      { name: 'HMAC', hash: 'SHA3-256' }],
     [false,
      { name: 'ECDH', public: ECDH.publicKey },

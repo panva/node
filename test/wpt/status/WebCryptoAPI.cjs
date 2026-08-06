@@ -114,6 +114,12 @@ if (hasFIPS(3)) {
     [
       'wrapKey_unwrapKey/wrapKey_unwrapKey.https.any.js',
       /(?=.*(?:RSASSA-PKCS1-v1_5|RSA-PSS|RSA-OAEP) private key)(?=.*non-extractable)/,
+    ],
+    // ChaCha20-Poly1305 keys import and generate in FIPS mode, wrapping with
+    // them is what the provider refuses.
+    [
+      'wrapKey_unwrapKey/wrapKey_unwrapKey.https.any.js',
+      /ChaCha20-Poly1305/,
     ]);
 }
 

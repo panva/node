@@ -1,17 +1,30 @@
 import * as crypto from 'node:crypto'
 
-import { hasOpenSSL } from '../../common/crypto.js'
+import { hasFIPS, hasOpenSSL } from '../../common/crypto.js'
+import fixtures from '../../common/fixtures.js';
 
 const boringSSL = process.features.openssl_is_boringssl;
+const fips3 = hasFIPS(3);
+const supportsXCurves = !hasFIPS(3, 5);
 const pqc = hasOpenSSL(3, 5) || boringSSL;
 const argon2 = hasOpenSSL(3, 2);
+const argon2Derive = argon2 && !fips3;
 const shake128 = crypto.getHashes().includes('shake128');
 const shake256 = crypto.getHashes().includes('shake256');
 const ocb = hasOpenSSL(3);
+const ocbCipher = ocb && !fips3;
 const kmac = hasOpenSSL(3);
+const chacha = !fips3;
 
-const { subtle } = globalThis.crypto;
-const X25519 = await subtle.generateKey('X25519', false, ['deriveBits', 'deriveKey']);
+const x25519PublicKey = crypto.createPublicKey(
+  fixtures.readKey('x25519_public.pem'))
+  .toCryptoKey('X25519', false, []);
+const ARGON2_PARAMS = {
+  nonce: Buffer.alloc(8),
+  parallelism: 1,
+  memory: 8,
+  passes: 1,
+};
 
 export const vectors = {
   'digest': [
@@ -75,6 +88,8 @@ export const vectors = {
     [false, 'Argon2id'],
     [false, 'KMAC128'],
     [false, 'KMAC256'],
+    [kmac, { name: 'KMAC128', outputLength: 0 }],
+    [kmac, { name: 'KMAC256', outputLength: 0 }],
     [kmac, { name: 'KMAC128', outputLength: 256 }],
     [kmac, { name: 'KMAC128', outputLength: 255 }],
     [kmac, { name: 'KMAC256', outputLength: 256 }],
@@ -166,25 +181,36 @@ export const vectors = {
     [false, 'KMAC256'],
   ],
   'deriveKey': [
-    [argon2,
-     { name: 'X25519', public: X25519.publicKey },
+    [argon2Derive,
+     { name: 'Argon2d', ...ARGON2_PARAMS },
+     { name: 'AES-CBC', length: 128 }],
+    [argon2Derive,
+     { name: 'Argon2i', ...ARGON2_PARAMS },
+     { name: 'AES-CBC', length: 128 }],
+    [argon2Derive,
+     { name: 'Argon2id', ...ARGON2_PARAMS },
+     { name: 'AES-CBC', length: 128 }],
+    [argon2 && supportsXCurves,
+     { name: 'X25519', public: x25519PublicKey },
      'Argon2d'],
-    [argon2,
-     { name: 'X25519', public: X25519.publicKey },
+    [argon2 && supportsXCurves,
+     { name: 'X25519', public: x25519PublicKey },
      'Argon2i'],
-    [argon2,
-     { name: 'X25519', public: X25519.publicKey },
+    [argon2 && supportsXCurves,
+     { name: 'X25519', public: x25519PublicKey },
      'Argon2id'],
   ],
   'deriveBits': [
-    [argon2, { name: 'Argon2d', nonce: Buffer.alloc(8), parallelism: 1, memory: 8, passes: 1 }, 32],
+    [argon2Derive, { name: 'Argon2d', nonce: Buffer.alloc(8), parallelism: 1, memory: 8, passes: 1 }, 32],
+    [argon2Derive, { name: 'Argon2i', ...ARGON2_PARAMS }, 32],
+    [argon2Derive, { name: 'Argon2id', ...ARGON2_PARAMS }, 32],
     [false, { name: 'Argon2d', nonce: Buffer.alloc(8), parallelism: 1, memory: 8, passes: 0 }, 32],
     [false, { name: 'Argon2d', nonce: Buffer.alloc(7), parallelism: 1, memory: 8, passes: 1 }, 32],
-    [argon2, { name: 'Argon2d', nonce: Buffer.alloc(8), parallelism: 1, memory: 8, passes: 1 }, 32],
-    [argon2, { name: 'Argon2d', nonce: Buffer.alloc(8), parallelism: 2, memory: 16, passes: 1 }, 32],
-    [argon2, { name: 'Argon2d', nonce: Buffer.alloc(8), parallelism: 1, memory: 8, passes: 1, secretValue: Buffer.alloc(0) }, 32],
-    [argon2, { name: 'Argon2d', nonce: Buffer.alloc(8), parallelism: 1, memory: 8, passes: 1, associatedData: Buffer.alloc(0) }, 32],
-    [argon2, { name: 'Argon2d', nonce: Buffer.alloc(8), parallelism: 1, memory: 8, passes: 1, version: 0x13 }, 32],
+    [argon2Derive, { name: 'Argon2d', nonce: Buffer.alloc(8), parallelism: 1, memory: 8, passes: 1 }, 32],
+    [argon2Derive, { name: 'Argon2d', nonce: Buffer.alloc(8), parallelism: 2, memory: 16, passes: 1 }, 32],
+    [argon2Derive, { name: 'Argon2d', nonce: Buffer.alloc(8), parallelism: 1, memory: 8, passes: 1, secretValue: Buffer.alloc(0) }, 32],
+    [argon2Derive, { name: 'Argon2d', nonce: Buffer.alloc(8), parallelism: 1, memory: 8, passes: 1, associatedData: Buffer.alloc(0) }, 32],
+    [argon2Derive, { name: 'Argon2d', nonce: Buffer.alloc(8), parallelism: 1, memory: 8, passes: 1, version: 0x13 }, 32],
     [false, { name: 'Argon2d', nonce: Buffer.alloc(8), parallelism: 1, memory: 8, passes: 1, version: 0x14 }, 32],
     [false, { name: 'Argon2d', nonce: Buffer.alloc(8), parallelism: 1, memory: 7, passes: 1 }, 32],
     [false, { name: 'Argon2d', nonce: Buffer.alloc(8), parallelism: 2, memory: 15, passes: 1 }, 32],
@@ -195,16 +221,16 @@ export const vectors = {
     [false, { name: 'Argon2d', nonce: Buffer.alloc(8), parallelism: 16777215, memory: 8, passes: 1 }, 32],
   ],
   'encrypt': [
-    [true, { name: 'ChaCha20-Poly1305', iv: Buffer.alloc(12) }],
+    [chacha, { name: 'ChaCha20-Poly1305', iv: Buffer.alloc(12) }],
     [false, { name: 'ChaCha20-Poly1305', iv: Buffer.alloc(16) }],
-    [true, { name: 'ChaCha20-Poly1305', iv: Buffer.alloc(12), tagLength: 128 }],
+    [chacha, { name: 'ChaCha20-Poly1305', iv: Buffer.alloc(12), tagLength: 128 }],
     [false, { name: 'ChaCha20-Poly1305', iv: Buffer.alloc(12), tagLength: 64 }],
     [false, 'ChaCha20-Poly1305'],
-    [ocb, { name: 'AES-OCB', iv: Buffer.alloc(15) }],
+    [ocbCipher, { name: 'AES-OCB', iv: Buffer.alloc(15) }],
     [false, { name: 'AES-OCB', iv: Buffer.alloc(16) }],
-    [ocb, { name: 'AES-OCB', iv: Buffer.alloc(12), tagLength: 128 }],
-    [ocb, { name: 'AES-OCB', iv: Buffer.alloc(12), tagLength: 96 }],
-    [ocb, { name: 'AES-OCB', iv: Buffer.alloc(12), tagLength: 64 }],
+    [ocbCipher, { name: 'AES-OCB', iv: Buffer.alloc(12), tagLength: 128 }],
+    [ocbCipher, { name: 'AES-OCB', iv: Buffer.alloc(12), tagLength: 96 }],
+    [ocbCipher, { name: 'AES-OCB', iv: Buffer.alloc(12), tagLength: 64 }],
     [false, { name: 'AES-OCB', iv: Buffer.alloc(12), tagLength: 32 }],
     [false, 'AES-OCB'],
   ],

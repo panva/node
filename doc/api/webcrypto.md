@@ -457,57 +457,55 @@ using AES-OCB, if available, and AES-GCM, otherwise.
 const { SubtleCrypto, crypto } = globalThis;
 
 const password = 'correct horse battery staple';
-const derivationAlg =
-  SubtleCrypto.supports?.('importKey', 'Argon2id') ?
-    'Argon2id' :
-    'PBKDF2';
-const encryptionAlg =
-  SubtleCrypto.supports?.('importKey', 'AES-OCB') ?
-    'AES-OCB' :
-    'AES-GCM';
-const passwordKey = await crypto.subtle.importKey(
-  derivationAlg === 'Argon2id' ? 'raw-secret' : 'raw',
-  new TextEncoder().encode(password),
-  derivationAlg,
-  false,
-  ['deriveKey'],
-);
 const nonce = crypto.getRandomValues(new Uint8Array(16));
+const iv = crypto.getRandomValues(new Uint8Array(12));
+const aesOcbParams = { name: 'AES-OCB', iv };
+const encryptionParams =
+  SubtleCrypto.supports?.('encrypt', aesOcbParams) ?
+    aesOcbParams :
+    { name: 'AES-GCM', iv };
+const derivedKeyType = {
+  name: encryptionParams.name,
+  length: 256,
+};
+const argon2Params = {
+  name: 'Argon2id',
+  nonce,
+  parallelism: 4,
+  memory: 2 ** 21,
+  passes: 1,
+};
 const derivationParams =
-  derivationAlg === 'Argon2id' ?
+  SubtleCrypto.supports?.('deriveKey', argon2Params, derivedKeyType) ?
+    argon2Params :
     {
-      nonce,
-      parallelism: 4,
-      memory: 2 ** 21,
-      passes: 1,
-    } :
-    {
+      name: 'PBKDF2',
       salt: nonce,
       iterations: 100_000,
       hash: 'SHA-256',
     };
+const passwordKey = await crypto.subtle.importKey(
+  derivationParams.name === 'Argon2id' ? 'raw-secret' : 'raw',
+  new TextEncoder().encode(password),
+  derivationParams.name,
+  false,
+  ['deriveKey'],
+);
 const key = await crypto.subtle.deriveKey(
-  {
-    name: derivationAlg,
-    ...derivationParams,
-  },
+  derivationParams,
   passwordKey,
-  {
-    name: encryptionAlg,
-    length: 256,
-  },
+  derivedKeyType,
   false,
   ['encrypt', 'decrypt'],
 );
 const plaintext = 'Hello, world!';
-const iv = crypto.getRandomValues(new Uint8Array(12));
 const encrypted = await crypto.subtle.encrypt(
-  { name: encryptionAlg, iv },
+  encryptionParams,
   key,
   new TextEncoder().encode(plaintext),
 );
 const decrypted = new TextDecoder().decode(await crypto.subtle.decrypt(
-  { name: encryptionAlg, iv },
+  encryptionParams,
   key,
   encrypted,
 ));
@@ -765,6 +763,12 @@ added: v24.7.0
 Allows feature detection in Web Crypto API,
 which can be used to detect whether a given algorithm identifier
 (including its parameters) is supported for the given operation.
+
+When selecting an algorithm for a cryptographic operation, applications should
+check the operation they intend to perform. For example, check `"encrypt"`
+rather than `"generateKey"` or `"importKey"` before selecting an encryption
+algorithm. Key generation and import are separate capabilities, so support for
+them does not imply support for using the key with a particular operation.
 
 See [Checking for runtime algorithm support][] for an example use of this method.
 

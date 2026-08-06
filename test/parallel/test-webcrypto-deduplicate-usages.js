@@ -50,10 +50,6 @@ function assertSameSet(actual, expected, msg) {
       expected: ['encrypt', 'decrypt', 'wrapKey', 'unwrapKey'] },
   ];
 
-  if (hasFIPS(3))
-    symmetric.splice(symmetric.findIndex(({ algorithm }) =>
-      algorithm.name === 'ChaCha20-Poly1305'), 1);
-
   if (hasOpenSSL(3)) {
     symmetric.push({
       algorithm: { name: 'AES-OCB', length: 128 },
@@ -350,10 +346,6 @@ function assertSameSet(actual, expected, msg) {
       { name: 'ChaCha20-Poly1305' },
       true,
       ['decrypt', 'encrypt', 'decrypt', 'encrypt']);
-    if (hasFIPS(3)) {
-      await assert.rejects(imported, { name: 'NotSupportedError' });
-      return;
-    }
     const key = await imported;
     assertSameSet(key.usages, ['encrypt', 'decrypt']);
     assert.strictEqual(key.usages.length, 2);

@@ -826,6 +826,66 @@ MaybeLocal<Value> ToWebCryptoJobResult(Environment* env, Local<Value> value) {
 }
 
 namespace {
+// The OpenSSL algorithm namespaces that SubtleCrypto.supports() probes. Every
+// EVP family exposes the same T_fetch/T_free pair, so the table only needs the
+// name of the type. Defined unconditionally: the constants exist on every
+// backend, only the fetch dispatch below is specific to OpenSSL 3 providers.
+#define ALGORITHM_TYPES(V)                                                     \
+  V(AsymmetricCipher, EVP_ASYM_CIPHER)                                         \
+  V(Cipher, EVP_CIPHER)                                                        \
+  V(Digest, EVP_MD)                                                            \
+  V(Kdf, EVP_KDF)                                                              \
+  V(Kem, EVP_KEM)                                                              \
+  V(KeyExchange, EVP_KEYEXCH)                                                  \
+  V(KeyManagement, EVP_KEYMGMT)                                                \
+  V(Mac, EVP_MAC)                                                              \
+  V(Signature, EVP_SIGNATURE)
+
+enum class AlgorithmType {
+#define V(label, _) label,
+  ALGORITHM_TYPES(V)
+#undef V
+};
+
+#if NCRYPTO_USE_OPENSSL3_PROVIDER
+template <typename T, auto Fetch, void (*Free)(T*)>
+bool HasImplementation(const char* name) {
+  return ncrypto::DeleteFnPtr<T, Free>{Fetch(nullptr, name, nullptr)} !=
+         nullptr;
+}
+
+bool HasImplementation(AlgorithmType type, const char* name) {
+  switch (type) {
+#define V(label, T)                                                            \
+  case AlgorithmType::label:                                                   \
+    return HasImplementation<T, T##_fetch, T##_free>(name);
+    ALGORITHM_TYPES(V)
+#undef V
+  }
+  UNREACHABLE();
+}
+#endif  // NCRYPTO_USE_OPENSSL3_PROVIDER
+
+// Reports whether the active providers implement the named algorithm. The name
+// is an OpenSSL algorithm name; lookups are case-insensitive and most Web
+// Crypto names are registered aliases, so callers pass those through as-is.
+void HasAlgorithm(const FunctionCallbackInfo<Value>& args) {
+#if NCRYPTO_USE_OPENSSL3_PROVIDER
+  CHECK(args[0]->IsUint32());
+  CHECK(args[1]->IsString());
+
+  Environment* env = Environment::GetCurrent(args);
+  const node::Utf8Value name(env->isolate(), args[1]);
+
+  Mutex::ScopedLock fips_lock(fips_mutex);
+  ncrypto::MarkPopErrorOnReturn mark_pop_error_on_return;
+  args.GetReturnValue().Set(HasImplementation(
+      static_cast<AlgorithmType>(args[0].As<Uint32>()->Value()), *name));
+#else
+  args.GetReturnValue().Set(true);
+#endif  // NCRYPTO_USE_OPENSSL3_PROVIDER
+}
+
 // SecureBuffer uses OpenSSL's secure heap feature to allocate a
 // Uint8Array. Without --secure-heap, OpenSSL's secure heap is disabled,
 // in which case this has the same semantics as
@@ -899,6 +959,15 @@ void Initialize(Environment* env, Local<Object> target) {
 
   SetMethodNoSideEffect(
       context, target, "getOpenSSLSecLevelCrypto", GetOpenSSLSecLevelCrypto);
+
+  SetMethodNoSideEffect(context, target, "hasAlgorithm", HasAlgorithm);
+
+#define V(label, _)                                                            \
+  constexpr auto kAlgorithmType##label =                                       \
+      static_cast<int>(AlgorithmType::label);                                  \
+  NODE_DEFINE_CONSTANT(target, kAlgorithmType##label);
+  ALGORITHM_TYPES(V)
+#undef V
 }
 void RegisterExternalReferences(ExternalReferenceRegistry* registry) {
 #ifndef OPENSSL_NO_ENGINE
@@ -911,6 +980,7 @@ void RegisterExternalReferences(ExternalReferenceRegistry* registry) {
   registry->Register(SecureBuffer);
   registry->Register(SecureHeapUsed);
   registry->Register(GetOpenSSLSecLevelCrypto);
+  registry->Register(HasAlgorithm);
 }
 
 }  // namespace Util

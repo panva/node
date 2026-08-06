@@ -42,18 +42,12 @@ const tests = [
   test('AES-GCM', 32, 12),
 ];
 
-if (fips3) {
-  tests.push(assert.rejects(
-    subtle.importKey(
-      'raw-secret',
-      new Uint8Array(32),
-      'ChaCha20-Poly1305',
-      false,
-      ['encrypt', 'decrypt']),
-    { name: 'NotSupportedError' }));
-} else {
-  tests.push(test('ChaCha20-Poly1305', 32, 12, 'raw-secret'));
-}
+tests.push(test(
+  'ChaCha20-Poly1305',
+  32,
+  12,
+  'raw-secret',
+  fips3 ? 'ERR_OSSL_EVP_UNSUPPORTED' : undefined));
 
 if (hasOpenSSL(3)) {
   tests.push(test(

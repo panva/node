@@ -1051,13 +1051,11 @@ for (const [name, operations] of supportedAlgorithms) {
                err.cause?.code === 'ERR_OSSL_EVP_UNSUPPORTED');
     continue;
   }
-  if ((fips3 && name === 'ChaCha20-Poly1305') ||
-      (fips35 && fips35UnavailableKeyGeneration.has(name))) {
-    const expected = name === 'ChaCha20-Poly1305' ?
-      { name: 'NotSupportedError' } :
+  if (fips35 && fips35UnavailableKeyGeneration.has(name)) {
+    await assert.rejects(
+      fixture.generateKey(ctx),
       (err) => err.name === 'OperationError' &&
-               err.cause?.code === 'ERR_OSSL_EVP_UNSUPPORTED';
-    await assert.rejects(fixture.generateKey(ctx), expected);
+               err.cause?.code === 'ERR_OSSL_EVP_UNSUPPORTED');
     continue;
   }
 
@@ -1068,7 +1066,7 @@ for (const [name, operations] of supportedAlgorithms) {
       typeof fixture[operation],
       'function',
       `missing prototype pollution coverage for ${name} ${operation}`);
-    if (fips3 && name === 'AES-OCB' &&
+    if (fips3 && (name === 'AES-OCB' || name === 'ChaCha20-Poly1305') &&
         (operation === 'encrypt' || operation === 'decrypt')) {
       if (operation === 'decrypt')
         ctx.ciphertext = new Uint8Array();
@@ -1127,11 +1125,7 @@ for (const name of getKeyLengthAlgorithms) {
       target.algorithm,
       true,
       target.usages));
-  if (fips3 && name === 'ChaCha20-Poly1305') {
-    await assert.rejects(deriveKey(), { name: 'NotSupportedError' });
-  } else {
-    await deriveKey();
-  }
+  await deriveKey();
 }
 
 // Keep one explicit unwrapKey('jwk') negative case: the parsed object must not

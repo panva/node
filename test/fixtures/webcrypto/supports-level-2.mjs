@@ -1,3 +1,8 @@
+import { createPrivateKey, createPublicKey } from 'node:crypto';
+
+import { hasFIPS } from '../../common/crypto.js';
+import fixtures from '../../common/fixtures.js';
+
 const { subtle } = globalThis.crypto;
 
 const RSA_KEY_GEN = {
@@ -5,12 +10,19 @@ const RSA_KEY_GEN = {
   publicExponent: new Uint8Array([1, 0, 1])
 };
 
-const [ECDH, X25519] = await Promise.all([
-  subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits', 'deriveKey']),
-  subtle.generateKey('X25519', false, ['deriveBits', 'deriveKey']),
-]);
+const ECDH = await subtle.generateKey(
+  { name: 'ECDH', namedCurve: 'P-256' },
+  false,
+  ['deriveBits', 'deriveKey']);
+const x25519PrivateKey = createPrivateKey(
+  fixtures.readKey('x25519_private.pem'))
+  .toCryptoKey('X25519', false, ['deriveBits', 'deriveKey']);
+const x25519PublicKey = createPublicKey(
+  fixtures.readKey('x25519_public.pem'))
+  .toCryptoKey('X25519', false, []);
 
 const boringSSL = process.features.openssl_is_boringssl;
+const supportsXCurves = !hasFIPS(3, 5);
 
 export const vectors = {
   'encrypt': [
@@ -58,7 +70,7 @@ export const vectors = {
     [false, 'Invalid'],
     [false, 'HKDF'],
     [false, 'PBKDF2'],
-    [true, 'X25519'],
+    [supportsXCurves, 'X25519'],
     [true, 'Ed25519'],
     [true, { name: 'HMAC', hash: 'SHA-256' }],
     [true, { name: 'HMAC', hash: 'SHA-256', length: 256 }],
@@ -100,20 +112,20 @@ export const vectors = {
     [false,
      { name: 'PBKDF2', hash: 'SHA-256', salt: Buffer.alloc(0), iterations: 1 },
      'HKDF'],
-    [true,
-     { name: 'X25519', public: X25519.publicKey },
+    [supportsXCurves,
+     { name: 'X25519', public: x25519PublicKey },
      { name: 'AES-CBC', length: 128 }],
     [false,
-     { name: 'X25519', public: X25519.publicKey },
+     { name: 'X25519', public: x25519PublicKey },
      { name: 'HMAC', hash: 'SHA-256' }],
-    [true,
-     { name: 'X25519', public: X25519.publicKey },
+    [supportsXCurves,
+     { name: 'X25519', public: x25519PublicKey },
      { name: 'HMAC', hash: 'SHA-256', length: 256 }],
     [false,
-     { name: 'X25519', public: X25519.publicKey },
+     { name: 'X25519', public: x25519PublicKey },
      { name: 'HMAC', hash: 'SHA-256', length: 257 }],
-    [true,
-     { name: 'X25519', public: X25519.publicKey },
+    [supportsXCurves,
+     { name: 'X25519', public: x25519PublicKey },
      'HKDF'],
     [true,
      { name: 'ECDH', public: ECDH.publicKey },
@@ -137,10 +149,10 @@ export const vectors = {
      { name: 'ECDH', public: ECDH.publicKey },
      'HKDF'],
     [false,
-      { name: 'X25519', public: X25519.publicKey },
+      { name: 'X25519', public: x25519PublicKey },
       'SHA-256'],
     [false,
-      { name: 'X25519', public: X25519.publicKey },
+      { name: 'X25519', public: x25519PublicKey },
       'AES-CBC'],
   ],
   'deriveBits': [
@@ -170,10 +182,10 @@ export const vectors = {
     [false, { name: 'ECDH', public: ECDH.privateKey }],
     [false, 'ECDH'],
 
-    [true, { name: 'X25519', public: X25519.publicKey }],
-    [true, { name: 'X25519', public: X25519.publicKey }, 256],
-    [false, { name: 'X25519', public: X25519.publicKey }, 257],
-    [false, { name: 'X25519', public: X25519.privateKey }],
+    [supportsXCurves, { name: 'X25519', public: x25519PublicKey }],
+    [supportsXCurves, { name: 'X25519', public: x25519PublicKey }, 256],
+    [false, { name: 'X25519', public: x25519PublicKey }, 257],
+    [false, { name: 'X25519', public: x25519PrivateKey }],
     [false, 'X25519'],
   ],
   'importKey': [

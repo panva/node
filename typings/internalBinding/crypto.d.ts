@@ -34,6 +34,20 @@ declare namespace InternalCryptoBinding {
   type CipherJobModeEncrypt = 0;
   type CipherJobModeDecrypt = 1;
   type CipherJobMode = CipherJobModeEncrypt | CipherJobModeDecrypt;
+  // Must stay in sync with the ALGORITHM_TYPES order in src/crypto/crypto_util.cc
+  type AlgorithmTypeAsymmetricCipher = 0;
+  type AlgorithmTypeCipher = 1;
+  type AlgorithmTypeDigest = 2;
+  type AlgorithmTypeKdf = 3;
+  type AlgorithmTypeKem = 4;
+  type AlgorithmTypeKeyExchange = 5;
+  type AlgorithmTypeKeyManagement = 6;
+  type AlgorithmTypeMac = 7;
+  type AlgorithmTypeSignature = 8;
+  type AlgorithmType =
+    AlgorithmTypeAsymmetricCipher | AlgorithmTypeCipher | AlgorithmTypeDigest |
+    AlgorithmTypeKdf | AlgorithmTypeKem | AlgorithmTypeKeyExchange |
+    AlgorithmTypeKeyManagement | AlgorithmTypeMac | AlgorithmTypeSignature;
   type SignJobModeSign = 0;
   type SignJobModeVerify = 1;
   type SignJobMode = SignJobModeSign | SignJobModeVerify;
@@ -855,6 +869,15 @@ export interface CryptoBinding {
   X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS: number;
   X509_CHECK_FLAG_NO_WILDCARDS: number;
   X509_CHECK_FLAG_SINGLE_LABEL_SUBDOMAINS: number;
+  kAlgorithmTypeAsymmetricCipher: InternalCryptoBinding.AlgorithmTypeAsymmetricCipher;
+  kAlgorithmTypeCipher: InternalCryptoBinding.AlgorithmTypeCipher;
+  kAlgorithmTypeDigest: InternalCryptoBinding.AlgorithmTypeDigest;
+  kAlgorithmTypeKdf: InternalCryptoBinding.AlgorithmTypeKdf;
+  kAlgorithmTypeKem: InternalCryptoBinding.AlgorithmTypeKem;
+  kAlgorithmTypeKeyExchange: InternalCryptoBinding.AlgorithmTypeKeyExchange;
+  kAlgorithmTypeKeyManagement: InternalCryptoBinding.AlgorithmTypeKeyManagement;
+  kAlgorithmTypeMac: InternalCryptoBinding.AlgorithmTypeMac;
+  kAlgorithmTypeSignature: InternalCryptoBinding.AlgorithmTypeSignature;
   kCryptoJobAsync: InternalCryptoBinding.CryptoJobAsyncMode;
   kCryptoJobSync: InternalCryptoBinding.CryptoJobSyncMode;
   kCryptoJobWebCrypto: InternalCryptoBinding.CryptoJobWebCryptoMode;
@@ -944,6 +967,10 @@ export interface CryptoBinding {
   getSSLCiphers(): string[];
   getSystemCACertificates(): string[];
   getUserRootCertificates(): string[];
+  hasAlgorithm(
+    type: InternalCryptoBinding.AlgorithmType,
+    name: string,
+  ): boolean;
   oneShotDigest(
     algorithm: string,
     algorithmId: number,

@@ -381,10 +381,17 @@ function testWrapping(name, keys) {
 
 (async function() {
   if (fips3) {
+    const chacha = await subtle.generateKey(
+      { name: 'ChaCha20-Poly1305' }, true, ['wrapKey']);
     await assert.rejects(
-      subtle.generateKey(
-        { name: 'ChaCha20-Poly1305' }, true, ['wrapKey']),
-      { name: 'NotSupportedError' });
+      subtle.wrapKey(
+        'raw',
+        await subtle.generateKey(
+          { name: 'HMAC', hash: 'SHA-256', length: 256 }, true, ['sign']),
+        chacha,
+        { name: 'ChaCha20-Poly1305', iv: new Uint8Array(12) }),
+      (err) => err.name === 'OperationError' &&
+               err.cause?.code === 'ERR_OSSL_EVP_UNSUPPORTED');
 
     if (fips35) {
       for (const name of ['X25519', 'X448']) {

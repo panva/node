@@ -250,13 +250,6 @@ if (hasOpenSSL(3, 5) || process.features.openssl_is_boringssl) {
 // Test bad usages
 {
   async function test(name) {
-    if (fips3 && name === 'ChaCha20-Poly1305') {
-      await assert.rejects(
-        subtle.generateKey({ name }, true, []),
-        { name: 'NotSupportedError' });
-      return;
-    }
-
     if (fips35 && (name === 'X25519' || name === 'X448')) {
       await assert.rejects(
         subtle.generateKey({ name }, true, ['deriveBits']),

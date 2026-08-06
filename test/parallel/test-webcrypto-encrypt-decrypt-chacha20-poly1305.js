@@ -9,16 +9,6 @@ const assert = require('assert');
 const { hasFIPS } = require('../common/crypto');
 const { subtle } = globalThis.crypto;
 
-if (hasFIPS(3)) {
-  assert.rejects(
-    subtle.generateKey(
-      { name: 'ChaCha20-Poly1305' },
-      false,
-      ['encrypt', 'decrypt']),
-    { name: 'NotSupportedError' }).then(common.mustCall());
-  return;
-}
-
 async function testEncrypt({ keyBuffer, algorithm, plaintext, result }) {
   // Using a copy of plaintext to prevent tampering of the original
   plaintext = Buffer.from(plaintext);
@@ -123,6 +113,16 @@ async function testDecrypt({ keyBuffer, algorithm, result }) {
   } = require('../fixtures/crypto/chacha20_poly1305')();
 
   (async function() {
+    // ChaCha20-Poly1305 is not a FIPS approved algorithm. Keys can still be
+    // imported and generated, using them is what the provider refuses.
+    if (hasFIPS(3)) {
+      await assert.rejects(
+        testEncrypt(passing[0]),
+        (err) => err.name === 'OperationError' &&
+                 err.cause?.code === 'ERR_OSSL_EVP_UNSUPPORTED');
+      return;
+    }
+
     const variations = [];
 
     passing.forEach((vector) => {
@@ -154,6 +154,10 @@ async function testDecrypt({ keyBuffer, algorithm, result }) {
 
 {
   (async function() {
+    // A round trip needs the provider to implement the cipher, which it does
+    // not in FIPS mode. The rejection is asserted above.
+    if (hasFIPS(3)) return;
+
     const secretKey = await subtle.generateKey(
       {
         name: 'ChaCha20-Poly1305',
