@@ -397,9 +397,12 @@ class Digest final {
   static constexpr size_t MAX_SIZE = EVP_MAX_MD_SIZE;
   Digest() = default;
   Digest(const EVP_MD* md) : md_(md) {}
-  Digest(const Digest&) = default;
-  Digest& operator=(const Digest&) = default;
+  Digest(const Digest& other);
+  Digest& operator=(const Digest& other);
   inline Digest& operator=(const EVP_MD* md) {
+#if NCRYPTO_USE_OPENSSL3_PROVIDER
+    fetched_md_.reset();
+#endif
     md_ = md;
     return *this;
   }
@@ -421,6 +424,10 @@ class Digest final {
 
  private:
   const EVP_MD* md_ = nullptr;
+#if NCRYPTO_USE_OPENSSL3_PROVIDER
+  explicit Digest(DeleteFnPtr<EVP_MD, EVP_MD_free> md);
+  DeleteFnPtr<EVP_MD, EVP_MD_free> fetched_md_;
+#endif
 };
 
 // Computes a fixed-length digest.
@@ -1691,6 +1698,9 @@ class EVPMDCtxPointer final {
   EVP_MD_CTX* release();
 
   bool digestInit(const Digest& digest);
+#if !defined(OPENSSL_IS_BORINGSSL) && OPENSSL_VERSION_PREREQ(4, 0)
+  bool digestInit(const Digest& digest, const OSSL_PARAM* params);
+#endif
   bool digestUpdate(const Buffer<const void>& in);
   DataPointer digestFinal(size_t length);
   bool digestFinalInto(Buffer<void>* buf);

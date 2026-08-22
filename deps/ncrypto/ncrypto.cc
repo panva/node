@@ -6484,6 +6484,14 @@ bool EVPMDCtxPointer::digestInit(const Digest& digest) {
   return EVP_DigestInit_ex(ctx_.get(), digest, nullptr) > 0;
 }
 
+#if !defined(OPENSSL_IS_BORINGSSL) && OPENSSL_VERSION_PREREQ(4, 0)
+bool EVPMDCtxPointer::digestInit(const Digest& digest,
+                                 const OSSL_PARAM* params) {
+  if (!ctx_) return false;
+  return EVP_DigestInit_ex2(ctx_.get(), digest, params) > 0;
+}
+#endif
+
 bool EVPMDCtxPointer::digestUpdate(const Buffer<const void>& in) {
   if (!ctx_) return false;
   return EVP_DigestUpdate(ctx_.get(), in.data, in.len) > 0;
@@ -7145,14 +7153,82 @@ size_t Digest::size() const {
   return EVP_MD_size(md_);
 }
 
+#if NCRYPTO_USE_OPENSSL3_PROVIDER
+Digest::Digest(DeleteFnPtr<EVP_MD, EVP_MD_free> md)
+    : md_(md.get()), fetched_md_(std::move(md)) {}
+#endif
+
+Digest::Digest(const Digest& other) : md_(other.md_) {
+#if NCRYPTO_USE_OPENSSL3_PROVIDER
+  if (other.fetched_md_ != nullptr) {
+    if (EVP_MD_up_ref(other.fetched_md_.get()) == 1) {
+      fetched_md_.reset(other.fetched_md_.get());
+    } else {
+      md_ = nullptr;
+    }
+  }
+#endif
+}
+
+Digest& Digest::operator=(const Digest& other) {
+  if (this == &other) return *this;
+#if NCRYPTO_USE_OPENSSL3_PROVIDER
+  if (other.fetched_md_ != nullptr) {
+    if (EVP_MD_up_ref(other.fetched_md_.get()) == 1) {
+      fetched_md_.reset(other.fetched_md_.get());
+    } else {
+      fetched_md_.reset();
+      md_ = nullptr;
+      return *this;
+    }
+  } else {
+    fetched_md_.reset();
+  }
+#endif
+  md_ = other.md_;
+  return *this;
+}
+
 const Digest Digest::MD5 = Digest(EVP_md5());
 const Digest Digest::SHA1 = Digest(EVP_sha1());
 const Digest Digest::SHA256 = Digest(EVP_sha256());
 const Digest Digest::SHA384 = Digest(EVP_sha384());
 const Digest Digest::SHA512 = Digest(EVP_sha512());
 
+#if NCRYPTO_USE_OPENSSL3_PROVIDER
+namespace {
+bool IsSupportedDigest(const EVP_MD* md) {
+  if (md == nullptr || EVP_MD_is_a(md, "NULL")) return false;
+
+  // OpenSSL currently crashes when ML-DSA-MU finalizes an empty input. Keep it
+  // unavailable until the provider implementation is fixed.
+  // https://github.com/openssl/openssl/issues/32445
+  if (EVP_MD_is_a(md, "ML-DSA-MU")) return false;
+
+  return true;
+}
+}  // namespace
+#endif
+
 const Digest Digest::FromName(const char* name) {
-  return ncrypto::getDigestByName(name);
+  const EVP_MD* md = ncrypto::getDigestByName(name);
+  if (md != nullptr) {
+#if NCRYPTO_USE_OPENSSL3_PROVIDER
+    if (!IsSupportedDigest(md)) return Digest();
+#endif
+    return Digest(md);
+  }
+
+#if NCRYPTO_USE_OPENSSL3_PROVIDER
+  MarkPopErrorOnReturn mark_pop_error_on_return;
+  DeleteFnPtr<EVP_MD, EVP_MD_free> fetched(
+      EVP_MD_fetch(nullptr, name, nullptr));
+  if (IsSupportedDigest(fetched.get())) {
+    return Digest(std::move(fetched));
+  }
+#endif
+
+  return Digest();
 }
 
 // ============================================================================

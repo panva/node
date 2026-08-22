@@ -18,6 +18,11 @@
 #include "openssl/provider.h"
 #endif
 
+#if !defined(OPENSSL_IS_BORINGSSL) && OPENSSL_VERSION_PREREQ(4, 0)
+#include <openssl/core_names.h>
+#include <openssl/params.h>
+#endif
+
 namespace node {
 
 using ncrypto::BignumPointer;
@@ -75,6 +80,108 @@ size_t MemoryRetainerTraits<crypto::ByteSource>::SelfSize(
 }
 
 namespace crypto {
+
+CShakeOptions::CShakeOptions(CShakeOptions&& other) noexcept
+    : function_name(std::move(other.function_name)),
+      customization(std::move(other.customization)),
+      flags(other.flags) {}
+
+CShakeOptions& CShakeOptions::operator=(CShakeOptions&& other) noexcept {
+  if (&other == this) return *this;
+  this->~CShakeOptions();
+  return *new (this) CShakeOptions(std::move(other));
+}
+
+void CShakeOptions::MemoryInfo(MemoryTracker* tracker) const {
+  tracker->TrackFieldWithSize("function_name", function_name.size());
+  tracker->TrackFieldWithSize("customization", customization.size());
+}
+
+bool CShakeOptions::Initialize(ncrypto::EVPMDCtxPointer* ctx,
+                               const ncrypto::Digest& digest) const {
+  if (!ctx || !*ctx || !digest) return false;
+  if (empty()) return ctx->digestInit(digest);
+
+#if !defined(OPENSSL_IS_BORINGSSL) && OPENSSL_VERSION_PREREQ(4, 0)
+  const bool is_cshake = EVP_MD_is_a(digest.get(), "CSHAKE-128") ||
+                         EVP_MD_is_a(digest.get(), "CSHAKE-256");
+  if (!is_cshake) return false;
+
+  OSSL_PARAM params[3];
+  size_t count = 0;
+  if (has(kFunctionName)) {
+    params[count++] = OSSL_PARAM_construct_utf8_string(
+        OSSL_DIGEST_PARAM_FUNCTION_NAME,
+        const_cast<char*>(function_name.c_str()),
+        function_name.size());
+  }
+  if (has(kCustomization)) {
+    params[count++] = OSSL_PARAM_construct_utf8_string(
+        OSSL_DIGEST_PARAM_CUSTOMIZATION,
+        const_cast<char*>(customization.c_str()),
+        customization.size());
+  }
+  params[count] = OSSL_PARAM_construct_end();
+  return ctx->digestInit(digest, params);
+#else
+  return false;
+#endif
+}
+
+namespace {
+bool ContainsNullByte(std::string_view value) {
+  return value.find('\0') != std::string_view::npos;
+}
+
+v8::Maybe<void> GetDigestStringOption(
+    Environment* env,
+    const v8::FunctionCallbackInfo<v8::Value>& args,
+    unsigned int offset,
+    CShakeOptions::Flag flag,
+    std::string* target,
+    CShakeOptions* options) {
+  if (args[offset]->IsUndefined()) return v8::JustVoid();
+  CHECK(IsAnyBufferSource(args[offset]));
+  ArrayBufferOrViewContents<char> value(args[offset]);
+  if (!value.CheckSizeInt32()) {
+    THROW_ERR_OUT_OF_RANGE(env, "digest option is too big");
+    return v8::Nothing<void>();
+  }
+  target->assign(value.data(), value.size());
+  if (ContainsNullByte(*target)) {
+    THROW_ERR_INVALID_ARG_VALUE(env,
+                                "Digest options must not contain null bytes");
+    return v8::Nothing<void>();
+  }
+  options->flags |= flag;
+  return v8::JustVoid();
+}
+}  // namespace
+
+v8::Maybe<void> GetCShakeOptions(
+    const v8::FunctionCallbackInfo<v8::Value>& args,
+    unsigned int offset,
+    CShakeOptions* options) {
+  Environment* env = Environment::GetCurrent(args);
+  if (GetDigestStringOption(env,
+                            args,
+                            offset,
+                            CShakeOptions::kFunctionName,
+                            &options->function_name,
+                            options)
+          .IsNothing() ||
+      GetDigestStringOption(env,
+                            args,
+                            offset + 1,
+                            CShakeOptions::kCustomization,
+                            &options->customization,
+                            options)
+          .IsNothing()) {
+    return v8::Nothing<void>();
+  }
+
+  return v8::JustVoid();
+}
 
 int PasswordCallback(char* buf, int size, int rwflag, void* u) {
   const ByteSource* passphrase = *static_cast<const ByteSource**>(u);

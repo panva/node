@@ -93,21 +93,30 @@ EVP_MD* GetCachedMDByID(Environment* env, size_t id) {
 
 struct MaybeCachedMD {
   EVP_MD* explicit_md = nullptr;
-  const EVP_MD* implicit_md = nullptr;
+  ncrypto::Digest digest;
   int32_t cache_id = -1;
 };
 
 MaybeCachedMD FetchAndMaybeCacheMD(Environment* env, const char* search_name) {
-  const EVP_MD* implicit_md = ncrypto::getDigestByName(search_name);
-  if (!implicit_md) return {nullptr, nullptr, -1};
+  auto cached = env->alias_to_md_id_map.find(search_name);
+  if (cached != env->alias_to_md_id_map.end()) {
+    const size_t id = cached->second;
+    EVP_MD* md = GetCachedMDByID(env, id);
+    return {md, md, static_cast<int32_t>(id)};
+  }
 
-  const char* real_name = EVP_MD_get0_name(implicit_md);
-  if (!real_name) return {nullptr, implicit_md, -1};
+  const ncrypto::Digest digest = ncrypto::Digest::FromName(search_name);
+  if (!digest) return {};
+
+  const char* real_name = EVP_MD_get0_name(digest);
+  if (!real_name) return {nullptr, digest, -1};
 
   auto it = env->alias_to_md_id_map.find(real_name);
   if (it != env->alias_to_md_id_map.end()) {
-    size_t id = it->second;
-    return {GetCachedMDByID(env, id), implicit_md, static_cast<int32_t>(id)};
+    const size_t id = it->second;
+    EVP_MD* md = GetCachedMDByID(env, id);
+    env->alias_to_md_id_map.emplace(search_name, id);
+    return {md, md, static_cast<int32_t>(id)};
   }
 
   // EVP_*_fetch() does not support alias names, so we need to pass it the
@@ -117,7 +126,7 @@ MaybeCachedMD FetchAndMaybeCacheMD(Environment* env, const char* search_name) {
   // algorithms are used internally by OpenSSL and are also passed to this
   // callback).
   EVP_MD* explicit_md = EVP_MD_fetch(nullptr, real_name, nullptr);
-  if (!explicit_md) return {nullptr, implicit_md, -1};
+  if (!explicit_md) return {nullptr, digest, -1};
 
   // Cache the EVP_MD* fetched.
   env->evp_md_cache.emplace_back(explicit_md);
@@ -131,7 +140,7 @@ MaybeCachedMD FetchAndMaybeCacheMD(Environment* env, const char* search_name) {
   }
   env->alias_to_md_id_map.emplace(search_name, id);
 
-  return {explicit_md, implicit_md, static_cast<int32_t>(id)};
+  return {explicit_md, explicit_md, static_cast<int32_t>(id)};
 }
 
 void SaveSupportedHashAlgorithmsAndCacheMD(const EVP_MD* md,
@@ -144,6 +153,54 @@ void SaveSupportedHashAlgorithmsAndCacheMD(const EVP_MD* md,
   if (result.explicit_md) {
     env->supported_hash_algorithms.push_back(from);
   }
+}
+
+struct ProviderHashNameContext {
+  Environment* env;
+  size_t cache_id;
+};
+
+void SaveSupportedProviderHashName(const char* name, void* arg) {
+  if (name == nullptr) return;
+
+  const std::string_view name_view(name);
+  const bool is_dotted_decimal =
+      name_view.find('.') != std::string_view::npos &&
+      std::all_of(name_view.begin(), name_view.end(), [](unsigned char c) {
+        return (c >= '0' && c <= '9') || c == '.';
+      });
+  if (is_dotted_decimal) return;
+
+  std::string normalized_name(name_view);
+  std::transform(normalized_name.begin(),
+                 normalized_name.end(),
+                 normalized_name.begin(),
+                 [](unsigned char c) {
+                   if (c >= 'A' && c <= 'Z') {
+                     return static_cast<char>(c + ('a' - 'A'));
+                   }
+                   return static_cast<char>(c);
+                 });
+
+  auto* context = static_cast<ProviderHashNameContext*>(arg);
+  context->env->supported_hash_algorithms.push_back(normalized_name);
+  context->env->alias_to_md_id_map.emplace(normalized_name, context->cache_id);
+}
+
+void SaveSupportedProviderHashAlgorithms(EVP_MD* md, void* arg) {
+  const char* name = EVP_MD_get0_name(md);
+  if (name == nullptr) return;
+
+  Environment* env = static_cast<Environment*>(arg);
+  auto result = FetchAndMaybeCacheMD(env, name);
+  if (result.explicit_md == nullptr) return;
+
+  ProviderHashNameContext context = {
+      .env = env,
+      .cache_id = static_cast<size_t>(result.cache_id),
+  };
+  EVP_MD_names_do_all(
+      result.explicit_md, SaveSupportedProviderHashName, &context);
 }
 
 #else
@@ -169,6 +226,7 @@ const std::vector<std::string>& GetSupportedHashAlgorithms(Environment* env) {
     // Since we'll fetch the EVP_MD*, cache them along the way to speed up
     // later lookups instead of throwing them away immediately.
     EVP_MD_do_all_sorted(SaveSupportedHashAlgorithmsAndCacheMD, env);
+    EVP_MD_do_all_provided(nullptr, SaveSupportedProviderHashAlgorithms, env);
 #else
     EVP_MD_do_all_sorted(SaveSupportedHashAlgorithms, env);
 #endif
@@ -210,10 +268,10 @@ void Hash::GetCachedAliases(const FunctionCallbackInfo<Value>& args) {
   args.GetReturnValue().Set(result);
 }
 
-const EVP_MD* GetDigestImplementation(Environment* env,
-                                      Local<Value> algorithm,
-                                      Local<Value> cache_id_val,
-                                      Local<Value> algorithm_cache) {
+ncrypto::Digest GetDigestImplementation(Environment* env,
+                                        Local<Value> algorithm,
+                                        Local<Value> cache_id_val,
+                                        Local<Value> algorithm_cache) {
   CHECK(algorithm->IsString());
   CHECK(cache_id_val->IsInt32());
   CHECK(algorithm_cache->IsObject());
@@ -243,10 +301,11 @@ const EVP_MD* GetDigestImplementation(Environment* env,
     }
   }
 
-  return result.explicit_md ? result.explicit_md : result.implicit_md;
+  return result.explicit_md ? ncrypto::Digest(result.explicit_md)
+                            : result.digest;
 #else
   Utf8Value utf8(env->isolate(), algorithm);
-  return ncrypto::getDigestByName(*utf8);
+  return ncrypto::Digest::FromName(*utf8);
 #endif
 }
 
@@ -287,12 +346,12 @@ bool ShouldRejectMissingXofLength(const EVP_MD* md, size_t default_length) {
 #endif
 }
 
-// crypto.digest(algorithm, algorithmId, algorithmCache,
-//               input, outputEncoding, outputEncodingId, outputLength)
+// crypto.digest(algorithm, algorithmId, algorithmCache, input, outputEncoding,
+//               outputEncodingId, outputLength, functionName, customization)
 void Hash::OneShotDigest(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
   Isolate* isolate = env->isolate();
-  CHECK_EQ(args.Length(), 7);
+  CHECK_EQ(args.Length(), 9);
   CHECK(args[0]->IsString());                                  // algorithm
   CHECK(args[1]->IsInt32());                                   // algorithmId
   CHECK(args[2]->IsObject());                                  // algorithmCache
@@ -301,8 +360,12 @@ void Hash::OneShotDigest(const FunctionCallbackInfo<Value>& args) {
   CHECK(args[5]->IsUint32() || args[5]->IsUndefined());  // outputEncodingId
   CHECK(args[6]->IsUint32() || args[6]->IsUndefined());  // outputLength
 
-  const EVP_MD* md = GetDigestImplementation(env, args[0], args[1], args[2]);
-  if (md == nullptr) [[unlikely]] {
+  CShakeOptions options;
+  if (GetCShakeOptions(args, 7, &options).IsNothing()) return;
+
+  const ncrypto::Digest md =
+      GetDigestImplementation(env, args[0], args[1], args[2]);
+  if (!md) [[unlikely]] {
     Utf8Value method(isolate, args[0]);
     std::string message =
         "Digest method " + method.ToString() + " is not supported";
@@ -335,7 +398,7 @@ void Hash::OneShotDigest(const FunctionCallbackInfo<Value>& args) {
     }
   }
 
-  if (output_length == 0) {
+  auto return_empty_output = [&]() {
     if (output_enc == BUFFER) {
       Local<Uint8Array> u8;
       if (Buffer::New(isolate, ArrayBuffer::New(isolate, 0), 0, 0)
@@ -345,28 +408,46 @@ void Hash::OneShotDigest(const FunctionCallbackInfo<Value>& args) {
     } else {
       args.GetReturnValue().Set(String::Empty(isolate));
     }
-    return;
+  };
+
+  if (output_length == 0 && options.empty()) {
+    return return_empty_output();
   }
 
-  DataPointer output = ([&]() -> DataPointer {
-    if (args[3]->IsString()) {
-      Utf8Value utf8(isolate, args[3]);
-      ncrypto::Buffer<const unsigned char> buf = {
-          .data = reinterpret_cast<const unsigned char*>(utf8.out()),
-          .len = utf8.length(),
-      };
-      return is_xof ? ncrypto::xofHashDigest(buf, md, output_length)
-                    : ncrypto::hashDigest(buf, md);
-    }
-
-    ArrayBufferViewContents<unsigned char> input(args[3]);
-    ncrypto::Buffer<const unsigned char> buf = {
-        .data = reinterpret_cast<const unsigned char*>(input.data()),
-        .len = input.length(),
+  ncrypto::Buffer<const unsigned char> input;
+  std::optional<Utf8Value> utf8;
+  std::optional<ArrayBufferViewContents<unsigned char>> buffer;
+  if (args[3]->IsString()) {
+    utf8.emplace(isolate, args[3]);
+    input = {
+        .data = reinterpret_cast<const unsigned char*>(utf8->out()),
+        .len = static_cast<size_t>(utf8->length()),
     };
-    return is_xof ? ncrypto::xofHashDigest(buf, md, output_length)
-                  : ncrypto::hashDigest(buf, md);
-  })();
+  } else {
+    buffer.emplace(args[3]);
+    input = {
+        .data = buffer->data(),
+        .len = buffer->length(),
+    };
+  }
+
+  DataPointer output;
+  if (options.empty()) {
+    output = is_xof ? ncrypto::xofHashDigest(input, md, output_length)
+                    : ncrypto::hashDigest(input, md);
+  } else {
+    EVPMDCtxPointer ctx = EVPMDCtxPointer::New();
+    if (!options.Initialize(&ctx, md)) {
+      return ThrowCryptoError(
+          env, ERR_get_error(), "Digest options are not supported");
+    }
+    if (!ctx.digestUpdate(
+            reinterpret_cast<const ncrypto::Buffer<const void>&>(input))) {
+      return ThrowCryptoError(env, ERR_get_error());
+    }
+    if (output_length == 0) return return_empty_output();
+    output = ctx.digestFinal(output_length);
+  }
 
   if (!output) [[unlikely]] {
     return ThrowCryptoError(env, ERR_get_error());
@@ -418,9 +499,11 @@ void Hash::RegisterExternalReferences(ExternalReferenceRegistry* registry) {
 #endif
 }
 
-// new Hash(algorithm, algorithmId, xofLen, algorithmCache)
+// new Hash(algorithm, xofLen, algorithmId, algorithmCache, functionName,
+//          customization)
 void Hash::New(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
+  CHECK_EQ(args.Length(), 6);
 
   Maybe<unsigned int> xof_md_len = Nothing<unsigned int>();
   if (!args[1]->IsUndefined()) {
@@ -429,19 +512,23 @@ void Hash::New(const FunctionCallbackInfo<Value>& args) {
   }
 
   const Hash* orig = nullptr;
-  const EVP_MD* md = nullptr;
+  ncrypto::Digest md;
   if (args[0]->IsObject()) {
     ASSIGN_OR_RETURN_UNWRAP(&orig, args[0].As<Object>());
     CHECK_NOT_NULL(orig);
     md = orig->mdctx_.getDigest();
   } else {
-    md = GetDigestImplementation(env, args[0], args[2], args[3]);
+    const ncrypto::Digest resolved =
+        GetDigestImplementation(env, args[0], args[2], args[3]);
+    md = resolved;
   }
 
   Hash* hash = new Hash(env, args.This());
-  if (md == nullptr || !hash->HashInit(md, xof_md_len)) {
-    return ThrowCryptoError(env, ERR_get_error(),
-                            "Digest method not supported");
+  CShakeOptions options;
+  if (GetCShakeOptions(args, 4, &options).IsNothing()) return;
+  if (!md || !hash->HashInit(md, options, xof_md_len)) {
+    return ThrowCryptoError(
+        env, ERR_get_error(), "Digest method not supported");
   }
 
   if (orig != nullptr && !orig->mdctx_.copyTo(hash->mdctx_)) {
@@ -449,17 +536,18 @@ void Hash::New(const FunctionCallbackInfo<Value>& args) {
   }
 }
 
-bool Hash::HashInit(const EVP_MD* md, Maybe<unsigned int> xof_md_len) {
+bool Hash::HashInit(const ncrypto::Digest& digest,
+                    const CShakeOptions& options,
+                    Maybe<unsigned int> xof_md_len) {
   mdctx_ = EVPMDCtxPointer::New();
-  if (!mdctx_.digestInit(md)) [[unlikely]] {
+  if (!options.Initialize(&mdctx_, digest)) [[unlikely]] {
     mdctx_.reset();
     return false;
   }
 
   md_len_ = mdctx_.getDigestSize();
-
   if (mdctx_.hasXofFlag() && !xof_md_len.IsJust() &&
-      ShouldRejectMissingXofLength(md, md_len_)) {
+      ShouldRejectMissingXofLength(digest, md_len_)) {
     MarkInvalidXofLength();
     mdctx_.reset();
     return false;
@@ -543,7 +631,10 @@ void Hash::HashDigest(const FunctionCallbackInfo<Value>& args) {
 }
 
 HashConfig::HashConfig(HashConfig&& other) noexcept
-    : in(std::move(other.in)), digest(other.digest), length(other.length) {}
+    : in(std::move(other.in)),
+      digest(other.digest),
+      options(std::move(other.options)),
+      length(other.length) {}
 
 HashConfig& HashConfig::operator=(HashConfig&& other) noexcept {
   if (&other == this) return *this;
@@ -553,6 +644,7 @@ HashConfig& HashConfig::operator=(HashConfig&& other) noexcept {
 
 void HashConfig::MemoryInfo(MemoryTracker* tracker) const {
   tracker->TraitTrackInline(in, "in");
+  tracker->TrackField("options", options);
 }
 
 MaybeLocal<Value> HashTraits::EncodeOutput(Environment* env,
@@ -570,8 +662,8 @@ Maybe<void> HashTraits::AdditionalConfig(
 
   CHECK(args[offset]->IsString());  // Hash algorithm
   Utf8Value digest(env->isolate(), args[offset]);
-  params->digest = ncrypto::getDigestByName(*digest);
-  if (params->digest == nullptr) [[unlikely]] {
+  params->digest = ncrypto::Digest::FromName(*digest);
+  if (!params->digest) [[unlikely]] {
     THROW_ERR_CRYPTO_INVALID_DIGEST(env, "Invalid digest: %s", digest);
     return Nothing<void>();
   }
@@ -583,7 +675,11 @@ Maybe<void> HashTraits::AdditionalConfig(
   }
   params->in = IsCryptoJobAsync(mode) ? data.ToCopy() : data.ToByteSource();
 
-  unsigned int expected = EVP_MD_size(params->digest);
+  if (GetCShakeOptions(args, offset + 3, &params->options).IsNothing()) {
+    return Nothing<void>();
+  }
+
+  unsigned int expected = EVP_MD_size(params->digest.get());
   params->length = expected;
   if (args[offset + 2]->IsUint32()) [[unlikely]] {
     // length is expressed in terms of bits
@@ -591,7 +687,8 @@ Maybe<void> HashTraits::AdditionalConfig(
         static_cast<uint32_t>(args[offset + 2].As<Uint32>()->Value()) /
         CHAR_BIT;
     if (params->length != expected) {
-      if ((EVP_MD_flags(params->digest) & EVP_MD_FLAG_XOF) == 0) [[unlikely]] {
+      if ((EVP_MD_flags(params->digest.get()) & EVP_MD_FLAG_XOF) == 0)
+          [[unlikely]] {
         THROW_ERR_CRYPTO_INVALID_DIGEST(env, "Digest method not supported");
         return Nothing<void>();
       }
@@ -608,8 +705,8 @@ bool HashTraits::DeriveBits(Environment* env,
                             CryptoErrorStore* errors) {
   auto ctx = EVPMDCtxPointer::New();
 
-  if (!ctx.digestInit(params.digest) || !ctx.digestUpdate(params.in))
-      [[unlikely]] {
+  if (!params.options.Initialize(&ctx, params.digest) ||
+      !ctx.digestUpdate(params.in)) [[unlikely]] {
     return false;
   }
 
