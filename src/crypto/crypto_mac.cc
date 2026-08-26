@@ -48,6 +48,40 @@ struct InitializedMac final {
   bool has_output_length = false;
 };
 
+struct ExtendedMacConfiguration final {
+  explicit ExtendedMacConfiguration(const FunctionCallbackInfo<Value>& args)
+      : cipher(args[5]),
+        iv(args[6]),
+        customization(args[7]),
+        salt(args[8]),
+        output_length(args[9]) {}
+
+  const Local<Value> cipher;
+  const Local<Value> iv;
+  const Local<Value> customization;
+  const Local<Value> salt;
+  const Local<Value> output_length;
+};
+
+struct MacConfiguration final {
+  MacConfiguration(const FunctionCallbackInfo<Value>& args,
+                   bool has_extended_options)
+      : algorithm(args[0]),
+        cache_id(args[1]),
+        algorithm_cache(args[2]),
+        key(args[3]),
+        digest(args[4]) {
+    if (has_extended_options) extended.emplace(args);
+  }
+
+  const Local<Value> algorithm;
+  const Local<Value> cache_id;
+  const Local<Value> algorithm_cache;
+  const Local<Value> key;
+  const Local<Value> digest;
+  std::optional<ExtendedMacConfiguration> extended;
+};
+
 struct MaybeCachedMac final {
   EVP_MAC* cached_mac = nullptr;
   ncrypto::EVPMacPointer mac;
@@ -178,22 +212,21 @@ EVP_MAC* GetMacImplementation(Environment* env,
   return nullptr;
 }
 
-bool IsSettableParameter(const ncrypto::EVPMacCtxPointer& context,
+bool IsSettableParameter(const OSSL_PARAM* settable,
                          const char* name,
                          unsigned int type) {
-  const OSSL_PARAM* settable = context.getSettableParams();
   const OSSL_PARAM* descriptor =
       settable == nullptr ? nullptr : OSSL_PARAM_locate_const(settable, name);
   return descriptor != nullptr && descriptor->data_type == type;
 }
 
 bool RequireSettableParameter(Environment* env,
-                              const ncrypto::EVPMacCtxPointer& context,
+                              const OSSL_PARAM* settable,
                               Local<Value> algorithm,
                               const char* option,
                               const char* parameter,
                               unsigned int type) {
-  if (IsSettableParameter(context, parameter, type)) return true;
+  if (IsSettableParameter(settable, parameter, type)) return true;
   Utf8Value name(env->isolate(), algorithm);
   THROW_ERR_INVALID_ARG_VALUE(
       env,
@@ -204,54 +237,65 @@ bool RequireSettableParameter(Environment* env,
 }
 
 bool InitializeMacContext(Environment* env,
-                          const FunctionCallbackInfo<Value>& args,
+                          const MacConfiguration& config,
                           InitializedMac* output) {
-  CHECK(args.Length() == 5 || args.Length() == 10);
-  CHECK(args[0]->IsString());
-  CHECK(args[1]->IsInt32());
-  CHECK(args[2]->IsObject());
+  CHECK(config.algorithm->IsString());
+  CHECK(config.cache_id->IsInt32());
+  CHECK(config.algorithm_cache->IsObject());
 
   Isolate* isolate = env->isolate();
-  ByteSource key = ByteSource::FromSecretKeyBytes(env, args[3]);
+  ByteSource key = ByteSource::FromSecretKeyBytes(env, config.key);
 
   std::optional<Utf8Value> digest;
-  if (!args[4]->IsUndefined()) {
-    CHECK(args[4]->IsString());
-    digest.emplace(isolate, args[4]);
+  if (!config.digest->IsUndefined()) {
+    CHECK(config.digest->IsString());
+    digest.emplace(isolate, config.digest);
   }
+
   std::optional<Utf8Value> cipher;
-  if (!args[5]->IsUndefined()) {
-    CHECK(args[5]->IsString());
-    cipher.emplace(isolate, args[5]);
-  }
-
-  const bool has_iv = !args[6]->IsUndefined();
+  bool has_iv = false;
   ByteSource iv;
-  if (has_iv) iv = ByteSource::FromBuffer(args[6]);
-  const bool has_customization = !args[7]->IsUndefined();
+  bool has_customization = false;
   ByteSource customization;
-  if (has_customization) customization = ByteSource::FromBuffer(args[7]);
-  const bool has_salt = !args[8]->IsUndefined();
+  bool has_salt = false;
   ByteSource salt;
-  if (has_salt) salt = ByteSource::FromBuffer(args[8]);
-
-  const bool has_output_length = !args[9]->IsUndefined();
+  bool has_output_length = false;
   size_t output_length = 0;
-  if (has_output_length) {
-    CHECK(args[9]->IsUint32());
-    output_length = args[9].As<Uint32>()->Value();
+  if (config.extended.has_value()) {
+    const ExtendedMacConfiguration& extended = *config.extended;
+    if (!extended.cipher->IsUndefined()) {
+      CHECK(extended.cipher->IsString());
+      cipher.emplace(isolate, extended.cipher);
+    }
+    has_iv = !extended.iv->IsUndefined();
+    if (has_iv) iv = ByteSource::FromBuffer(extended.iv);
+    has_customization = !extended.customization->IsUndefined();
+    if (has_customization) {
+      customization = ByteSource::FromBuffer(extended.customization);
+    }
+    has_salt = !extended.salt->IsUndefined();
+    if (has_salt) salt = ByteSource::FromBuffer(extended.salt);
+    has_output_length = !extended.output_length->IsUndefined();
+    if (has_output_length) {
+      CHECK(extended.output_length->IsUint32());
+      output_length = extended.output_length.As<Uint32>()->Value();
+    }
   }
 
   ncrypto::EVPMacPointer mac_owner;
   ncrypto::MacKind kind = ncrypto::MacKind::kOther;
-  EVP_MAC* mac =
-      GetMacImplementation(env, args[0], args[1], args[2], &mac_owner, &kind);
+  EVP_MAC* mac = GetMacImplementation(env,
+                                      config.algorithm,
+                                      config.cache_id,
+                                      config.algorithm_cache,
+                                      &mac_owner,
+                                      &kind);
   if (mac == nullptr) {
     if (env->isolate()->IsExecutionTerminating() ||
         env->isolate()->HasPendingException()) {
       return false;
     }
-    Utf8Value name(env->isolate(), args[0]);
+    Utf8Value name(env->isolate(), config.algorithm);
     THROW_ERR_CRYPTO_INVALID_MAC(env, "Invalid MAC: %s", *name);
     return false;
   }
@@ -285,12 +329,18 @@ bool InitializeMacContext(Environment* env,
     return false;
   }
 
+  const bool has_parameters = digest.has_value() || cipher.has_value() ||
+                              has_iv || has_customization || has_salt ||
+                              has_output_length;
+  const OSSL_PARAM* settable =
+      has_parameters ? context.getSettableParams() : nullptr;
+
   std::array<OSSL_PARAM, 7> params;
   size_t count = 0;
   if (digest.has_value()) {
     if (!RequireSettableParameter(env,
-                                  context,
-                                  args[0],
+                                  settable,
+                                  config.algorithm,
                                   "digest",
                                   OSSL_MAC_PARAM_DIGEST,
                                   OSSL_PARAM_UTF8_STRING)) {
@@ -301,8 +351,8 @@ bool InitializeMacContext(Environment* env,
   }
   if (cipher.has_value()) {
     if (!RequireSettableParameter(env,
-                                  context,
-                                  args[0],
+                                  settable,
+                                  config.algorithm,
                                   "cipher",
                                   OSSL_MAC_PARAM_CIPHER,
                                   OSSL_PARAM_UTF8_STRING)) {
@@ -319,8 +369,8 @@ bool InitializeMacContext(Environment* env,
                        const char* parameter) {
     if (!present) return true;
     if (!RequireSettableParameter(env,
-                                  context,
-                                  args[0],
+                                  settable,
+                                  config.algorithm,
                                   option,
                                   parameter,
                                   OSSL_PARAM_OCTET_STRING)) {
@@ -348,8 +398,8 @@ bool InitializeMacContext(Environment* env,
       return false;
     }
     if (!RequireSettableParameter(env,
-                                  context,
-                                  args[0],
+                                  settable,
+                                  config.algorithm,
                                   "outputLength",
                                   OSSL_MAC_PARAM_SIZE,
                                   OSSL_PARAM_UNSIGNED_INTEGER)) {
@@ -373,7 +423,7 @@ bool InitializeMacContext(Environment* env,
   }
   if (has_output_length && output_size != output_length) {
     ERR_clear_error();
-    Utf8Value name(env->isolate(), args[0]);
+    Utf8Value name(env->isolate(), config.algorithm);
     THROW_ERR_INVALID_ARG_VALUE(
         env,
         "The property 'options.outputLength' was not honored by MAC %s",
@@ -534,6 +584,7 @@ void Mac::Initialize(Environment* env, Local<Object> target) {
   SetProtoMethod(isolate, t, "final", MacFinal);
   SetConstructorFunction(context, target, "Mac", t);
 
+  SetMethodNoSideEffect(context, target, "oneShotMac", OneShot);
   SetMethodNoSideEffect(context, target, "getMacs", GetMacs);
   SetMethodNoSideEffect(
       context, target, "getCachedMacAliases", GetCachedAliases);
@@ -541,6 +592,7 @@ void Mac::Initialize(Environment* env, Local<Object> target) {
 
 void Mac::RegisterExternalReferences(ExternalReferenceRegistry* registry) {
   registry->Register(New);
+  registry->Register(OneShot);
   registry->Register(MacUpdate);
   registry->Register(MacFinal);
   registry->Register(GetMacs);
@@ -553,12 +605,58 @@ void Mac::New(const FunctionCallbackInfo<Value>& args) {
   CHECK(args.Length() == 5 || args.Length() == 10);
   Environment* env = Environment::GetCurrent(args);
   InitializedMac initialized;
-  if (!InitializeMacContext(env, args, &initialized)) return;
+  const MacConfiguration config(args, args.Length() == 10);
+  if (!InitializeMacContext(env, config, &initialized)) return;
   new Mac(env,
           args.This(),
           std::move(initialized.context),
           initialized.output_size,
           initialized.has_output_length);
+#else
+  THROW_ERR_CRYPTO_MAC_NOT_SUPPORTED(Environment::GetCurrent(args),
+                                     "MAC is not supported");
+#endif
+}
+
+void Mac::OneShot(const FunctionCallbackInfo<Value>& args) {
+#if OPENSSL_WITH_EVP_MAC
+  CHECK(args.Length() == 7 || args.Length() == 12);
+  const bool has_extended_options = args.Length() == 12;
+  const size_t data_index = has_extended_options ? 10 : 5;
+  const size_t encoding_index = data_index + 1;
+  CHECK(args[data_index]->IsString() || args[data_index]->IsArrayBufferView());
+  CHECK(args[encoding_index]->IsUint32());
+
+  Environment* env = Environment::GetCurrent(args);
+  const MacConfiguration config(args, has_extended_options);
+  InitializedMac initialized;
+  if (!InitializeMacContext(env, config, &initialized)) return;
+
+  const bool updated = [&]() {
+    if (args[data_index]->IsString()) {
+      Utf8Value input(env->isolate(), args[data_index]);
+      return UpdateMac(&initialized.context, *input, input.length());
+    }
+    ArrayBufferViewContents<char> input(args[data_index]);
+    return UpdateMac(&initialized.context, input.data(), input.length());
+  }();
+  if (!updated) {
+    THROW_ERR_CRYPTO_MAC_UPDATE_FAILED(env, "MAC update failed");
+    return;
+  }
+
+  const uint32_t encoding_value = args[encoding_index].As<Uint32>()->Value();
+  CHECK_LE(encoding_value, static_cast<uint32_t>(BASE64URL));
+  const auto encoding = static_cast<enum encoding>(encoding_value);
+  Local<Value> result;
+  if (FinalizeMac(env,
+                  &initialized.context,
+                  initialized.output_size,
+                  initialized.has_output_length,
+                  encoding)
+          .ToLocal(&result)) {
+    args.GetReturnValue().Set(result);
+  }
 #else
   THROW_ERR_CRYPTO_MAC_NOT_SUPPORTED(Environment::GetCurrent(args),
                                      "MAC is not supported");

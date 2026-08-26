@@ -986,6 +986,29 @@ export interface CryptoBinding {
     functionName?: InternalCryptoBinding.OptionalBufferSource,
     customization?: InternalCryptoBinding.OptionalBufferSource,
   ): string | InternalCryptoBinding.Buffer;
+  oneShotMac(
+    algorithm: string,
+    algorithmId: number,
+    algorithmCache: Record<string, number>,
+    key: InternalCryptoBinding.PreparedSecretKeyData,
+    digest: string | undefined,
+    data: string | ArrayBufferView,
+    outputEncodingId: number,
+  ): string | InternalCryptoBinding.Buffer;
+  oneShotMac(
+    algorithm: string,
+    algorithmId: number,
+    algorithmCache: Record<string, number>,
+    key: InternalCryptoBinding.PreparedSecretKeyData,
+    digest: string | undefined,
+    cipher: string | undefined,
+    iv: InternalCryptoBinding.OptionalBufferSource,
+    customization: InternalCryptoBinding.OptionalBufferSource,
+    salt: InternalCryptoBinding.OptionalBufferSource,
+    outputLength: number | undefined,
+    data: string | ArrayBufferView,
+    outputEncodingId: number,
+  ): string | InternalCryptoBinding.Buffer;
   parseX509(data: InternalCryptoBinding.ByteSource): InternalCryptoBinding.X509CertificateHandle;
   privateDecrypt: InternalCryptoBinding.PublicKeyCipher;
   privateEncrypt: InternalCryptoBinding.PublicKeyCipher;

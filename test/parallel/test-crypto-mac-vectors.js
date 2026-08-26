@@ -20,6 +20,7 @@ const {
   createMac,
   getCiphers,
   getMacs,
+  mac,
 } = require('node:crypto');
 
 const availableMacs = new Set(getMacs());
@@ -144,6 +145,10 @@ for (const vector of vectors) {
     createMac(vector.algorithm, key, vector.options).update(data).final(),
     expected,
   );
+  assert.deepStrictEqual(
+    mac(vector.algorithm, key, data, vector.options),
+    expected,
+  );
 }
 
 if (availableMacs.has('kmac128')) {
@@ -158,6 +163,13 @@ if (availableMacs.has('kmac128')) {
         .final(outputEncoding),
       '',
     );
+    assert.strictEqual(
+      mac(algorithm, vector.key, vector.data, {
+        ...options,
+        outputEncoding,
+      }),
+      '',
+    );
   }
 
   for (const result of [
@@ -167,6 +179,11 @@ if (availableMacs.has('kmac128')) {
     createMac(algorithm, vector.key, options)
       .update(vector.data)
       .final('buffer'),
+    mac(algorithm, vector.key, vector.data, options),
+    mac(algorithm, vector.key, vector.data, {
+      ...options,
+      outputEncoding: 'buffer',
+    }),
   ]) {
     assert(Buffer.isBuffer(result));
     assert.deepStrictEqual(result, Buffer.alloc(0));

@@ -15,6 +15,7 @@ const {
   createMac,
   getFips,
   getMacs,
+  mac,
   setFips,
 } = require('node:crypto');
 const { getMacCache } = require('internal/crypto/util');
@@ -112,6 +113,7 @@ function installThrowingMacCacheEntry(id) {
 
 installThrowingMacCacheEntry(-1);
 assert.throws(() => createMac(cacheName, key), throwsSentinel);
+assert.throws(() => mac(cacheName, key, data), throwsSentinel);
 Object.defineProperty(macCache, cacheName, descriptor);
 
 // OpenSSL exposes two spellings for each KMAC implementation. They must map
@@ -132,6 +134,10 @@ if (kmac128Id === undefined || kmac128HyphenatedId === undefined) {
       .update(kmacData).final(),
     createMac(hyphenatedAlgorithm, kmacKey, kmacOptions)
       .update(kmacData).final(),
+  );
+  assert.deepStrictEqual(
+    mac(kmacAlgorithm, kmacKey, kmacData, kmacOptions),
+    mac(hyphenatedAlgorithm, kmacKey, kmacData, kmacOptions),
   );
   const aliasesAfterUse = binding.getCachedMacAliases();
   assert.strictEqual(getAliasId(aliasesAfterUse, 'kmac128'), kmac128Id);
@@ -256,6 +262,9 @@ if (!canToggleFips || fipsMacs.includes(algorithm)) {
       assert.throws(() => createMac(algorithm, key), {
         code: 'ERR_CRYPTO_INVALID_MAC',
       });
+      assert.throws(() => mac(algorithm, key, data), {
+        code: 'ERR_CRYPTO_INVALID_MAC',
+      });
       assert.strictEqual(liveMac.final('hex'), expected);
 
       let responsePromise = once(worker, 'message');
@@ -284,6 +293,7 @@ if (!canToggleFips || fipsMacs.includes(algorithm)) {
         createMac(algorithm, key).update(data).final('hex'),
         expected,
       );
+      assert.strictEqual(mac(algorithm, key, data, 'hex'), expected);
 
       responsePromise = once(worker, 'message');
       worker.postMessage('fips-off');

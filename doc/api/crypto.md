@@ -5256,15 +5256,15 @@ On builds without OpenSSL `EVP_MAC` support, this function returns an empty
 array.
 
 The returned names describe implementations that OpenSSL can fetch. They do not
-guarantee that [`crypto.createMac()`][] can initialize the MAC without
-additional options. A provider can require additional parameters or a key with
-algorithm-specific properties, and it can expose parameters that this API does
-not support.
+guarantee that [`crypto.createMac()`][] or [`crypto.mac()`][] can initialize the
+MAC without additional options. A provider can require additional parameters
+or a key with algorithm-specific properties, and it can expose parameters that
+these APIs do not support.
 
 After a successful FIPS mode change made with [`crypto.setFips()`][], subsequent
-calls reflect the new mode, and newly created `Mac` objects use it. Existing
-`Mac` objects continue using the provider implementation selected when they
-were created.
+calls reflect the new mode, and newly created `Mac` objects and subsequent
+[`crypto.mac()`][] calls use it. Existing `Mac` objects continue using the
+provider implementation selected when they were created.
 
 ```mjs
 const { getMacs } = await import('node:crypto');
@@ -5514,6 +5514,65 @@ const { Buffer } = require('node:buffer');
 
 const derivedKey = hkdfSync('sha512', 'key', 'salt', 'info', 64);
 console.log(Buffer.from(derivedKey).toString('hex'));  // '24156e2...5391653'
+```
+
+### `crypto.mac(algorithm, key, data[, options])`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+> Stability: 1.2 - Release candidate
+
+* `algorithm` {string} The name of the MAC algorithm.
+* `key` {ArrayBuffer|Buffer|TypedArray|DataView|KeyObject}
+* `data` {string|Buffer|TypedArray|DataView} When `data` is a string, it is
+  encoded as UTF-8.
+* `options` {Object|string}
+  * `digest` {string} The digest used by the MAC.
+  * `cipher` {string} The cipher used by the MAC.
+  * `iv` {ArrayBuffer|Buffer|TypedArray|DataView} The initialization vector.
+  * `customization` {ArrayBuffer|Buffer|TypedArray|DataView} The customization
+    byte string.
+  * `salt` {ArrayBuffer|Buffer|TypedArray|DataView} The salt byte string.
+  * `outputLength` {number} The requested provider output size in bytes. Must be
+    an unsigned 32-bit integer. Provider-specific restrictions also apply.
+  * `outputEncoding` {string} The [encoding][] of the return value. **Default:**
+    `'buffer'`.
+* Returns: {Buffer|string}
+
+Computes and returns the authentication tag for `data` in a single operation.
+The `algorithm`, `key`, and MAC-specific options have the same requirements as
+[`crypto.createMac()`][]; see its table for the requirements of MAC families in
+OpenSSL's built-in providers.
+
+If `options` is a string, it specifies `outputEncoding`. When `outputEncoding`
+is omitted or is `'buffer'`, a [`Buffer`][] is returned. Otherwise, a string is
+returned.
+
+`outputLength` configures the output size of the provider MAC. It never
+truncates a longer computed tag. If the provider accepts an `outputLength` of
+`0`, the result is a zero-length [`Buffer`][] or an empty string, depending on
+`outputEncoding`.
+
+Available algorithms and accepted parameters depend on the OpenSSL version,
+loaded providers, active default property query, and current FIPS mode.
+[`crypto.getMacs()`][] lists fetchable MAC names, but a listed name can still
+require provider-specific options or key properties. Calls made after a
+successful FIPS mode change through [`crypto.setFips()`][] use the new mode.
+
+To verify an authentication tag, compare equal-length [`Buffer`][] values using
+[`crypto.timingSafeEqual()`][].
+
+```mjs
+const { mac, randomBytes } = await import('node:crypto');
+
+const key = randomBytes(16);
+const tag = mac('CMAC', key, 'some data to authenticate', {
+  cipher: 'AES-128-CBC',
+});
+
+console.log(tag.toString('hex'));
 ```
 
 ### `crypto.pbkdf2(password, salt, iterations, keylen, digest, callback)`
@@ -7649,6 +7708,7 @@ See the [list of SSL OP Flags][] for details.
 [`crypto.getHashes()`]: #cryptogethashes
 [`crypto.getMacs()`]: #cryptogetmacs
 [`crypto.hash()`]: #cryptohashalgorithm-data-options
+[`crypto.mac()`]: #cryptomacalgorithm-key-data-options
 [`crypto.privateDecrypt()`]: #cryptoprivatedecryptprivatekey-buffer
 [`crypto.privateEncrypt()`]: #cryptoprivateencryptprivatekey-buffer
 [`crypto.publicDecrypt()`]: #cryptopublicdecryptkey-buffer

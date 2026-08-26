@@ -23,6 +23,7 @@ class Mac final : public BaseObject {
 
  private:
   static void New(const v8::FunctionCallbackInfo<v8::Value>& args);
+  static void OneShot(const v8::FunctionCallbackInfo<v8::Value>& args);
   static void MacUpdate(const v8::FunctionCallbackInfo<v8::Value>& args);
   static void MacFinal(const v8::FunctionCallbackInfo<v8::Value>& args);
   static void GetMacs(const v8::FunctionCallbackInfo<v8::Value>& args);

@@ -7,12 +7,14 @@ const {
   createHmac,
   createMac,
   getMacs,
+  mac,
 } = require('node:crypto');
 
 if (!hasOpenSSL(3) ||
     process.features.openssl_is_boringssl ||
     typeof createMac !== 'function' ||
-    typeof getMacs !== 'function') {
+    typeof getMacs !== 'function' ||
+    typeof mac !== 'function') {
   console.log('Skipping: generic MAC API requires OpenSSL >= 3');
   process.exit(0);
 }
@@ -25,6 +27,8 @@ const operations = [
   'hmac-lifecycle',
   'mac-lifecycle',
   'mac-stream-lifecycle',
+  'one-shot-buffer',
+  'one-shot-hex',
   'update',
   'stream',
   'final-buffer',
@@ -67,6 +71,10 @@ const bench = common.createBenchmark(main, {
         operation === 'mac-stream-lifecycle') {
       return n === 10_000;
     }
+    if (operation === 'one-shot-buffer')
+      return n === 500_000;
+    if (operation === 'one-shot-hex')
+      return length === 64 && n === 500_000;
     if (operation === 'update' || operation === 'stream') {
       return length === 64 && n === 500_000;
     }
@@ -78,10 +86,10 @@ const bench = common.createBenchmark(main, {
     return false;
   },
   test: {
-    operation: ['create-cold'],
+    operation: ['one-shot-buffer'],
     algorithm: ['hmac-sha256'],
     length: [0],
-    n: [1],
+    n: [500_000],
   },
 });
 
@@ -110,6 +118,12 @@ function main({ operation, algorithm, length, n }) {
       break;
     case 'mac-stream-lifecycle':
       measureMacStreamLifecycle(configuration, data, n);
+      break;
+    case 'one-shot-buffer':
+      measureOneShot(configuration, data, n);
+      break;
+    case 'one-shot-hex':
+      measureOneShot(configuration, data, n, 'hex');
       break;
     case 'update':
       measureUpdate(configuration, data, n);
@@ -193,6 +207,25 @@ function measureMacStreamLifecycle({ algorithm, key, options }, data, n) {
   bench.end(n);
 
   assert(Buffer.isBuffer(result));
+}
+
+function measureOneShot(
+  { algorithm, key, options }, data, n, outputEncoding) {
+  if (outputEncoding !== undefined) {
+    options = { ...options, outputEncoding };
+  }
+  mac(algorithm, key, data, options);
+
+  let result;
+  bench.start();
+  for (let i = 0; i < n; ++i)
+    result = mac(algorithm, key, data, options);
+  bench.end(n);
+
+  if (outputEncoding === undefined)
+    assert(Buffer.isBuffer(result));
+  else
+    assert.strictEqual(typeof result, 'string');
 }
 
 function measureUpdate({ algorithm, key, options }, data, n) {

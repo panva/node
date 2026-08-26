@@ -5,6 +5,7 @@ const {
   createMac,
   getFips,
   getMacs,
+  mac,
   setFips,
 } = require('node:crypto');
 const { setDeserializeMainFunction } = require('node:v8').startupSnapshot;
@@ -24,10 +25,12 @@ assert.strictEqual(
   createMac(algorithm, key).update(data).final('hex'),
   expected,
 );
+assert.strictEqual(mac(algorithm, key, data, 'hex'), expected);
 
 setDeserializeMainFunction(() => {
   // Resolve through the JavaScript alias cache before refreshing getMacs().
   // Startup snapshot serialization must not retain the build-time cache IDs.
+  assert.strictEqual(mac(algorithm, key, data, 'hex'), expected);
   assert.strictEqual(
     createMac(algorithm, key).update(data).final('hex'),
     expected,
@@ -53,6 +56,9 @@ setDeserializeMainFunction(() => {
     assert.throws(() => createMac(algorithm, key), {
       code: 'ERR_CRYPTO_INVALID_MAC',
     });
+    assert.throws(() => mac(algorithm, key, data), {
+      code: 'ERR_CRYPTO_INVALID_MAC',
+    });
   }
   setFips(0);
 
@@ -61,5 +67,6 @@ setDeserializeMainFunction(() => {
     createMac(algorithm, key).update(data).final('hex'),
     expected,
   );
+  assert.strictEqual(mac(algorithm, key, data, 'hex'), expected);
   console.log('provider MAC cache snapshot: ok');
 });
