@@ -2563,6 +2563,9 @@ ways:
 Instances of `Mac` are created using [`crypto.createMac()`][]. The `Mac` class
 is not exported directly by the `node:crypto` module.
 
+Where supported, [`mac.copy()`][] can branch an in-progress computation without
+replaying the common input.
+
 Calling `mac.end()` without first writing data computes the authentication tag
 for an empty message. If the selected MAC produces a zero-byte tag, such as
 when a provider accepts `outputLength: 0`, the readable side ends without
@@ -2587,6 +2590,37 @@ const mac = createMac('CMAC', key, {
 mac.update('some data to authenticate');
 console.log(mac.final('hex'));
 ```
+
+### `mac.copy([options])`
+
+<!-- YAML
+added: REPLACEME
+-->
+
+* `options` {Object} [`stream.transform` options][]
+* Returns: {Mac}
+
+Creates a new `Mac` object containing a deep copy of the internal state of the
+current `Mac` object. The original and the copy can be updated and finalized
+independently.
+
+The optional `options` argument controls the stream behavior of the returned
+object. The MAC algorithm, its parameters, and its output length are inherited
+from the source and cannot be changed. The copy uses the same provider
+implementation as the source and does not perform another algorithm fetch.
+
+Node.js does not support copying GMAC or Poly1305 contexts. A copy would retain
+the GMAC key and initialization vector or the Poly1305 one-time key, making it
+unsafe to finalize the source and the copy for different messages. Calling this
+method for either MAC throws `ERR_CRYPTO_UNSUPPORTED_OPERATION`. Other provider
+MACs can impose additional restrictions on copying.
+
+Calling this method after finalization has been attempted, whether through
+[`mac.final()`][] or stream completion, or after an underlying update has failed,
+throws `ERR_CRYPTO_MAC_FINALIZED`. A provider can also decline to duplicate a
+context. When Node.js is linked against a shared OpenSSL, copying is limited to
+the built-in MACs supplied by OpenSSL's `default` and `fips` providers. If
+context duplication fails, the source remains usable.
 
 ### `mac.final([outputEncoding])`
 
@@ -7674,6 +7708,7 @@ See the [list of SSL OP Flags][] for details.
 [`hmac.update()`]: #hmacupdatedata-inputencoding
 [`import()`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/import
 [`keyObject.export()`]: #keyobjectexportoptions
+[`mac.copy()`]: #maccopyoptions
 [`mac.final()`]: #macfinaloutputencoding
 [`mac.update()`]: #macupdatedata-inputencoding
 [`postMessage()`]: worker_threads.md#portpostmessagevalue-transferlist

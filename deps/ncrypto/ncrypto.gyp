@@ -55,6 +55,9 @@
           'sources': [ '<@(ncrypto_engine_sources)' ],
         }],
         ['node_shared_openssl=="false"', {
+          'defines': [
+            'NCRYPTO_BUNDLED_OPENSSL',
+          ],
           'dependencies': [
             '../openssl/openssl.gyp:openssl'
           ]

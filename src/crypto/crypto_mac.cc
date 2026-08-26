@@ -436,6 +436,16 @@ bool UpdateMac(ncrypto::EVPMacCtxPointer* context,
   return updated;
 }
 
+const char* GetUnsafeMacCopyName(const ncrypto::EVPMacCtxPointer& context) {
+  EVP_MAC* mac = EVP_MAC_CTX_get0_mac(context.get());
+  if (mac == nullptr) return nullptr;
+  if (EVP_MAC_is_a(mac, OSSL_MAC_NAME_GMAC)) return OSSL_MAC_NAME_GMAC;
+  if (EVP_MAC_is_a(mac, OSSL_MAC_NAME_POLY1305)) {
+    return OSSL_MAC_NAME_POLY1305;
+  }
+  return nullptr;
+}
+
 void SaveMacName(const char* name, void* arg) {
   if (name == nullptr) return;
   const std::string_view view(name);
@@ -504,11 +514,13 @@ Mac::Mac(Environment* env,
          Local<Object> wrap,
          ncrypto::EVPMacCtxPointer&& context,
          size_t output_size,
-         bool has_output_length)
+         bool has_output_length,
+         std::optional<bool> duplicable)
     : BaseObject(env, wrap),
       context_(std::move(context)),
       output_size_(output_size),
-      has_output_length_(has_output_length) {
+      has_output_length_(has_output_length),
+      duplicable_(duplicable) {
   MakeWeak();
 }
 #else
@@ -550,8 +562,46 @@ void Mac::RegisterExternalReferences(ExternalReferenceRegistry* registry) {
 void Mac::New(const FunctionCallbackInfo<Value>& args) {
   CHECK(args.IsConstructCall());
 #if OPENSSL_WITH_EVP_MAC
-  CHECK(args.Length() == 5 || args.Length() == 10);
   Environment* env = Environment::GetCurrent(args);
+  if (args.Length() == 1) {
+    CHECK(args[0]->IsObject());
+    Mac* original;
+    ASSIGN_OR_RETURN_UNWRAP(&original, args[0].As<Object>());
+    if (!original->context_) {
+      THROW_ERR_CRYPTO_OPERATION_FAILED(env, "MAC context is not initialized");
+      return;
+    }
+
+    if (const char* name = GetUnsafeMacCopyName(original->context_)) {
+      THROW_ERR_CRYPTO_UNSUPPORTED_OPERATION(
+          env, "MAC context copying is not supported for %s", name);
+      return;
+    }
+
+    if (!original->duplicable_.has_value()) {
+      original->duplicable_ = original->context_.canSafelyDuplicate();
+    }
+    if (!original->duplicable_.value()) {
+      THROW_ERR_CRYPTO_UNSUPPORTED_OPERATION(
+          env, "MAC context copying is not supported for this provider");
+      return;
+    }
+
+    ncrypto::EVPMacCtxPointer context = original->context_.duplicate();
+    if (!context) {
+      ThrowCryptoError(env, ERR_get_error(), "Failed to copy MAC context");
+      return;
+    }
+    new Mac(env,
+            args.This(),
+            std::move(context),
+            original->output_size_,
+            original->has_output_length_,
+            true);
+    return;
+  }
+
+  CHECK(args.Length() == 5 || args.Length() == 10);
   InitializedMac initialized;
   if (!InitializeMacContext(env, args, &initialized)) return;
   new Mac(env,

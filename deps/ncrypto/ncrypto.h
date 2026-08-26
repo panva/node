@@ -1963,6 +1963,8 @@ class EVPMacCtxPointer final {
   bool update(const Buffer<const void>& data);
   size_t getSize() const;
   const OSSL_PARAM* getSettableParams() const;
+  bool canSafelyDuplicate() const;
+  EVPMacCtxPointer duplicate() const;
   DataPointer final(size_t length);
 
   static EVPMacCtxPointer New(EVP_MAC* mac);

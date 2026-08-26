@@ -7173,6 +7173,52 @@ HMACCtxPointer HMACCtxPointer::New() {
 #endif  // !OPENSSL_WITH_EVP_MAC
 
 #if OPENSSL_WITH_EVP_MAC
+namespace {
+
+#ifndef NCRYPTO_BUNDLED_OPENSSL
+bool IsKnownSharedOpenSSLMac(EVP_MAC* mac) {
+  if (mac == nullptr) return false;
+
+  const OSSL_PROVIDER* provider = EVP_MAC_get0_provider(mac);
+  const char* provider_name =
+      provider == nullptr ? nullptr : OSSL_PROVIDER_get0_name(provider);
+  const char* expected_description = nullptr;
+  if (provider_name != nullptr && strcmp(provider_name, "default") == 0) {
+    expected_description = "OpenSSL Default Provider";
+  } else if (provider_name != nullptr && strcmp(provider_name, "fips") == 0) {
+    expected_description = "OpenSSL FIPS Provider";
+  } else {
+    return false;
+  }
+
+  // Provider configuration is trusted by Node. Requiring both its configured
+  // identity and its self-reported identity avoids treating an ordinary custom
+  // provider alias as an OpenSSL built-in. Restrict the contract to the
+  // built-in MAC implementations known to provide dupctx as well.
+  MarkPopErrorOnReturn mark_pop_error_on_return;
+  char* description = nullptr;
+  OSSL_PARAM params[] = {
+      OSSL_PARAM_construct_utf8_ptr(OSSL_PROV_PARAM_NAME, &description, 0),
+      OSSL_PARAM_construct_end(),
+  };
+  if (OSSL_PROVIDER_get_params(provider, params) != 1 ||
+      description == nullptr ||
+      strcmp(description, expected_description) != 0) {
+    return false;
+  }
+
+  return EVP_MAC_is_a(mac, OSSL_MAC_NAME_HMAC) ||
+         EVP_MAC_is_a(mac, OSSL_MAC_NAME_CMAC) ||
+         EVP_MAC_is_a(mac, OSSL_MAC_NAME_KMAC128) ||
+         EVP_MAC_is_a(mac, OSSL_MAC_NAME_KMAC256) ||
+         EVP_MAC_is_a(mac, OSSL_MAC_NAME_BLAKE2BMAC) ||
+         EVP_MAC_is_a(mac, OSSL_MAC_NAME_BLAKE2SMAC) ||
+         EVP_MAC_is_a(mac, OSSL_MAC_NAME_SIPHASH);
+}
+#endif
+
+}  // namespace
+
 EVPMacPointer::EVPMacPointer(EVP_MAC* mac) : mac_(mac) {}
 
 EVPMacPointer::EVPMacPointer(EVPMacPointer&& other) noexcept
@@ -7326,6 +7372,27 @@ size_t EVPMacCtxPointer::getSize() const {
 
 const OSSL_PARAM* EVPMacCtxPointer::getSettableParams() const {
   return ctx_ ? EVP_MAC_CTX_settable_params(ctx_.get()) : nullptr;
+}
+
+bool EVPMacCtxPointer::canSafelyDuplicate() const {
+  if (!ctx_) return false;
+
+#ifdef NCRYPTO_BUNDLED_OPENSSL
+  // Node's bundled OpenSSL checks the exact fetched method for dupctx before
+  // invoking it, so every provider can safely attempt duplication.
+  return true;
+#else
+  // OpenSSL releases without that check may call a null optional dupctx
+  // callback. There is no public API for inspecting the callback on the exact
+  // fetched method. Fail closed outside the audited OpenSSL built-ins rather
+  // than relying on a fresh provider query that may describe another method.
+  return IsKnownSharedOpenSSLMac(EVP_MAC_CTX_get0_mac(ctx_.get()));
+#endif
+}
+
+EVPMacCtxPointer EVPMacCtxPointer::duplicate() const {
+  return ctx_ ? EVPMacCtxPointer(EVP_MAC_CTX_dup(ctx_.get()))
+              : EVPMacCtxPointer();
 }
 
 DataPointer EVPMacCtxPointer::final(size_t length) {

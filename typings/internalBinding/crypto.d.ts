@@ -649,6 +649,22 @@ declare namespace InternalCryptoBinding {
     final(encoding?: string): string | Buffer;
   }
 
+  interface MacConstructor {
+    new (source: MacHandle): MacHandle;
+    new (
+      algorithm: string,
+      algorithmId: number,
+      algorithmCache: Record<string, number>,
+      key: PreparedSecretKeyData,
+      digest?: string,
+      cipher?: string,
+      iv?: OptionalBufferSource,
+      customization?: OptionalBufferSource,
+      salt?: OptionalBufferSource,
+      outputLength?: number,
+    ): MacHandle;
+  }
+
   interface CipherBaseHandle {
     update(data: ByteSource, inputEncoding?: string): Buffer;
     final(): Buffer;
@@ -833,18 +849,7 @@ export interface CryptoBinding {
     customization?: InternalCryptoBinding.OptionalBufferSource,
   ) => InternalCryptoBinding.HashHandle;
   Hmac: new () => InternalCryptoBinding.HmacHandle;
-  Mac: new (
-    algorithm: string,
-    algorithmId: number,
-    algorithmCache: Record<string, number>,
-    key: InternalCryptoBinding.PreparedSecretKeyData,
-    digest?: string,
-    cipher?: string,
-    iv?: InternalCryptoBinding.OptionalBufferSource,
-    customization?: InternalCryptoBinding.OptionalBufferSource,
-    salt?: InternalCryptoBinding.OptionalBufferSource,
-    outputLength?: number,
-  ) => InternalCryptoBinding.MacHandle;
+  Mac: InternalCryptoBinding.MacConstructor;
   KeyObjectHandle: new () => InternalCryptoBinding.KeyObjectHandle;
   SecureContext: new () => InternalCryptoBinding.SecureContextHandle;
   Sign: new () => InternalCryptoBinding.SignHandle;

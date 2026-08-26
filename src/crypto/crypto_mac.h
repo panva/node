@@ -9,6 +9,8 @@
 #include "memory_tracker.h"
 #include "v8.h"
 
+#include <optional>
+
 namespace node {
 namespace crypto {
 
@@ -33,11 +35,13 @@ class Mac final : public BaseObject {
       v8::Local<v8::Object> wrap,
       ncrypto::EVPMacCtxPointer&& context,
       size_t output_size,
-      bool has_output_length);
+      bool has_output_length,
+      std::optional<bool> duplicable = std::nullopt);
 
   ncrypto::EVPMacCtxPointer context_;
   size_t output_size_ = 0;
   bool has_output_length_ = false;
+  std::optional<bool> duplicable_;
 #else
   Mac(Environment* env, v8::Local<v8::Object> wrap);
 #endif

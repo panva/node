@@ -100,6 +100,29 @@ if (!availableMacs.has('hmac')) {
     { code: 'ERR_CRYPTO_MAC_FINALIZED' },
   );
 
+  const prefix = Buffer.from('common prefix:');
+  const sourceSuffix = Buffer.from('source');
+  const copySuffix = Buffer.from('copy');
+  const source = createMac(algorithm, key, options).update(prefix);
+  const copy = source.copy();
+  assert(copy instanceof Transform);
+  assert.deepStrictEqual(
+    copy.update(copySuffix).final(),
+    createHmac('sha256', key).update(prefix).update(copySuffix).digest(),
+  );
+  assert.deepStrictEqual(
+    source.update(sourceSuffix).final(),
+    createHmac('sha256', key).update(prefix).update(sourceSuffix).digest(),
+  );
+  assert.throws(
+    () => copy.copy(),
+    { code: 'ERR_CRYPTO_MAC_FINALIZED' },
+  );
+  assert.throws(
+    () => source.copy(),
+    { code: 'ERR_CRYPTO_MAC_FINALIZED' },
+  );
+
   // Input encodings are handled by update(), while final() accepts an output
   // encoding.
   assert.strictEqual(
@@ -208,6 +231,32 @@ if (!availableMacs.has('hmac')) {
     );
     assert.throws(
       () => streamed.final(),
+      { code: 'ERR_CRYPTO_MAC_FINALIZED' },
+    );
+
+    const streamSource = createMac(algorithm, key, options).update(prefix);
+    const streamCopy = streamSource.copy({ highWaterMark: 1 });
+    const streamCopyChunks = [];
+    streamCopy.on(
+      'data', common.mustCall((chunk) => streamCopyChunks.push(chunk), 1));
+    assert.strictEqual(streamCopy.writableHighWaterMark, 1);
+    assert.strictEqual(streamCopy.readableHighWaterMark, 1);
+    const streamCopyFinished = finished(streamCopy);
+    streamCopy.end(copySuffix);
+    await streamCopyFinished;
+    assert.deepStrictEqual(
+      Buffer.concat(streamCopyChunks),
+      createHmac('sha256', key).update(prefix).update(copySuffix).digest(),
+    );
+    assert.deepStrictEqual(
+      streamSource.update(sourceSuffix).final(),
+      createHmac('sha256', key)
+        .update(prefix)
+        .update(sourceSuffix)
+        .digest(),
+    );
+    assert.throws(
+      () => streamCopy.copy(),
       { code: 'ERR_CRYPTO_MAC_FINALIZED' },
     );
 

@@ -144,6 +144,35 @@ for (const vector of vectors) {
     createMac(vector.algorithm, key, vector.options).update(data).final(),
     expected,
   );
+
+  const split = Math.floor(data.length / 2);
+  const source = createMac(vector.algorithm, key, vector.options)
+    .update(data.subarray(0, split));
+  if (vector.algorithm === 'gmac' || vector.algorithm === 'poly1305') {
+    assert.throws(
+      () => source.copy(),
+      { code: 'ERR_CRYPTO_UNSUPPORTED_OPERATION' },
+    );
+  } else {
+    assert.deepStrictEqual(
+      source.copy().update(data.subarray(split)).final(),
+      expected,
+    );
+  }
+  assert.deepStrictEqual(
+    source.update(data.subarray(split)).final(),
+    expected,
+  );
+
+  if (vector.algorithm === 'gmac') {
+    const oidSource = createMac('1.0.9797.3.4', key, vector.options)
+      .update(data);
+    assert.throws(
+      () => oidSource.copy(),
+      { code: 'ERR_CRYPTO_UNSUPPORTED_OPERATION' },
+    );
+    assert.deepStrictEqual(oidSource.final(), expected);
+  }
 }
 
 if (availableMacs.has('kmac128')) {
@@ -171,6 +200,11 @@ if (availableMacs.has('kmac128')) {
     assert(Buffer.isBuffer(result));
     assert.deepStrictEqual(result, Buffer.alloc(0));
   }
+
+  const zeroLengthSource = createMac(algorithm, vector.key, options)
+    .update(vector.data);
+  assert.deepStrictEqual(zeroLengthSource.copy().final(), Buffer.alloc(0));
+  assert.deepStrictEqual(zeroLengthSource.final(), Buffer.alloc(0));
 
   const streamed = createMac(algorithm, vector.key, options);
   streamed.on('data', common.mustNotCall());

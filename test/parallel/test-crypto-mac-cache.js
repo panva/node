@@ -12,6 +12,7 @@ if (!hasOpenSSL3 || process.features.openssl_is_boringssl)
 const assert = require('node:assert');
 const { once } = require('node:events');
 const {
+  createHmac,
   createMac,
   getFips,
   getMacs,
@@ -150,6 +151,11 @@ if (!canToggleFips || fipsMacs.includes(algorithm)) {
   }
 } else {
   const liveMac = createMac(algorithm, key).update(data);
+  const liveHmac = initialMacs.includes('hmac') ?
+    createMac('hmac', key, { digest: 'sha256' }).update(data) :
+    undefined;
+  const expectedHmac = liveHmac === undefined ? undefined :
+    createHmac('sha256', key).update(data).digest('hex');
   const worker = new Worker(`
     'use strict';
     const {
@@ -256,7 +262,14 @@ if (!canToggleFips || fipsMacs.includes(algorithm)) {
       assert.throws(() => createMac(algorithm, key), {
         code: 'ERR_CRYPTO_INVALID_MAC',
       });
+      assert.throws(() => liveMac.copy(), {
+        code: 'ERR_CRYPTO_UNSUPPORTED_OPERATION',
+      });
       assert.strictEqual(liveMac.final('hex'), expected);
+      if (liveHmac !== undefined) {
+        assert.strictEqual(liveHmac.copy().final('hex'), expectedHmac);
+        assert.strictEqual(liveHmac.final('hex'), expectedHmac);
+      }
 
       let responsePromise = once(worker, 'message');
       worker.postMessage('fips-on');

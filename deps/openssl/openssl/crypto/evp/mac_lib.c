@@ -51,8 +51,10 @@ EVP_MAC_CTX *EVP_MAC_CTX_dup(const EVP_MAC_CTX *src)
 {
     EVP_MAC_CTX *dst;
 
-    if (src->algctx == NULL)
+    if (src == NULL || src->algctx == NULL || src->meth->dupctx == NULL) {
+        ERR_raise(ERR_LIB_EVP, EVP_R_NOT_ABLE_TO_COPY_CTX);
         return NULL;
+    }
 
     dst = OPENSSL_malloc(sizeof(*dst));
     if (dst == NULL)
