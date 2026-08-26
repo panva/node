@@ -1,3 +1,5 @@
+// Flags: --expose-internals
+
 'use strict';
 
 const common = require('../common');
@@ -14,6 +16,7 @@ if (!hasOpenSSL(3) || process.features.openssl_is_boringssl) {
 
 const assert = require('node:assert');
 const crypto = require('node:crypto');
+const { encodingsMap } = require('internal/util');
 const {
   createHmac,
   createMac,
@@ -98,7 +101,7 @@ if (!availableMacs.has('hmac')) {
   );
 
   // Input encodings are handled by update(), while final() accepts an output
-  // encoding. The explicit "buffer" encoding retains Buffer output.
+  // encoding.
   assert.strictEqual(
     createMac(algorithm, key, options)
       .update(data.toString('hex'), 'hex')
@@ -111,15 +114,36 @@ if (!availableMacs.has('hmac')) {
       .final('base64url'),
     expected.toString('base64url'),
   );
+  for (const outputEncoding of Object.keys(encodingsMap)) {
+    if (outputEncoding === 'buffer') continue;
+    assert.strictEqual(
+      createMac(algorithm, key, options)
+        .update(data)
+        .final(outputEncoding),
+      expected.toString(outputEncoding),
+    );
+  }
   assert.deepStrictEqual(
     createMac(algorithm, key, options)
       .update(data, 'not-an-encoding')
       .final(),
     expected,
   );
-  assert.deepStrictEqual(
-    createMac(algorithm, key, options).update(data).final('buffer'),
-    expected,
+  const explicitBuffer = createMac(algorithm, key, options)
+    .update(data)
+    .final('buffer');
+  assert(Buffer.isBuffer(explicitBuffer));
+  assert.deepStrictEqual(explicitBuffer, expected);
+
+  const encodedFinal = createMac(algorithm, key, options).update(data);
+  assert.strictEqual(encodedFinal.final('hex'), expected.toString('hex'));
+  assert.throws(
+    () => encodedFinal.update(data),
+    { code: 'ERR_CRYPTO_MAC_FINALIZED' },
+  );
+  assert.throws(
+    () => encodedFinal.final('hex'),
+    { code: 'ERR_CRYPTO_MAC_FINALIZED' },
   );
   // BufferSource keys and data must honor view offsets and lengths.
   const keyStorage = Uint8Array.from([0xff, ...key, 0xff]);

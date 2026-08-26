@@ -17,7 +17,19 @@ if (!hasOpenSSL(3) ||
   process.exit(0);
 }
 
-const isTest = process.argv.includes('--test');
+const operations = [
+  'get-macs-cold',
+  'get-macs-warm',
+  'create-cold',
+  'create-warm',
+  'hmac-lifecycle',
+  'mac-lifecycle',
+  'mac-stream-lifecycle',
+  'update',
+  'stream',
+  'final-buffer',
+  'final-hex',
+];
 const configurations = {
   'hmac-sha256': {
     algorithm: 'HMAC',
@@ -32,24 +44,12 @@ const configurations = {
 };
 
 const bench = common.createBenchmark(main, {
-  operation: [
-    'get-macs-cold',
-    'get-macs-warm',
-    'create-cold',
-    'create-warm',
-    'create-hmac',
-    'update',
-    'stream',
-  ],
+  operation: operations,
   algorithm: Object.keys(configurations),
   length: [0, 64, 4096],
   n: [1, 10_000, 20_000, 500_000],
 }, {
   combinationFilter({ operation, algorithm, length, n }) {
-    if (isTest) {
-      return algorithm === 'hmac-sha256' && length === 0 && n === 1;
-    }
-
     if (operation === 'get-macs-cold') {
       return algorithm === 'hmac-sha256' && length === 0 && n === 1;
     }
@@ -60,11 +60,25 @@ const bench = common.createBenchmark(main, {
       return length === 0 && n === 1;
     if (operation === 'create-warm')
       return length === 0 && n === 20_000;
-    if (operation === 'create-hmac' && algorithm !== 'hmac-sha256')
-      return false;
-    return n === 10_000;
+    if (operation === 'hmac-lifecycle') {
+      return algorithm === 'hmac-sha256' && n === 10_000;
+    }
+    if (operation === 'mac-lifecycle' ||
+        operation === 'mac-stream-lifecycle') {
+      return n === 10_000;
+    }
+    if (operation === 'update' || operation === 'stream') {
+      return length === 64 && n === 500_000;
+    }
+    if (operation === 'final-buffer' || operation === 'final-hex') {
+      return algorithm === 'hmac-sha256' &&
+             length === 64 &&
+             n === 20_000;
+    }
+    return false;
   },
   test: {
+    operation: ['get-macs-cold', 'create-cold'],
     algorithm: ['hmac-sha256'],
     length: [0],
     n: [1],
@@ -88,14 +102,26 @@ function main({ operation, algorithm, length, n }) {
     case 'create-warm':
       measureCreate(configuration, n, true);
       break;
-    case 'create-hmac':
-      measureCreateHmac(configuration, data, n);
+    case 'hmac-lifecycle':
+      measureHmacLifecycle(configuration, data, n);
+      break;
+    case 'mac-lifecycle':
+      measureMacLifecycle(configuration, data, n);
+      break;
+    case 'mac-stream-lifecycle':
+      measureMacStreamLifecycle(configuration, data, n);
       break;
     case 'update':
       measureUpdate(configuration, data, n);
       break;
     case 'stream':
       measureStream(configuration, data, n);
+      break;
+    case 'final-buffer':
+      measureFinal(configuration, data, n);
+      break;
+    case 'final-hex':
+      measureFinal(configuration, data, n, 'hex');
       break;
     default:
       throw new Error(`unknown operation: ${operation}`);
@@ -128,7 +154,7 @@ function measureCreate({ algorithm, key, options }, n, warm) {
   assert.strictEqual(typeof contexts[n - 1], 'object');
 }
 
-function measureCreateHmac({ key, options }, data, n) {
+function measureHmacLifecycle({ key, options }, data, n) {
   createHmac(options.digest, key).update(data).digest();
 
   let result;
@@ -140,7 +166,7 @@ function measureCreateHmac({ key, options }, data, n) {
   assert(Buffer.isBuffer(result));
 }
 
-function measureUpdate({ algorithm, key, options }, data, n) {
+function measureMacLifecycle({ algorithm, key, options }, data, n) {
   createMac(algorithm, key, options).update(data).final();
 
   let result;
@@ -152,7 +178,7 @@ function measureUpdate({ algorithm, key, options }, data, n) {
   assert(Buffer.isBuffer(result));
 }
 
-function measureStream({ algorithm, key, options }, data, n) {
+function measureMacStreamLifecycle({ algorithm, key, options }, data, n) {
   const warmup = createMac(algorithm, key, options);
   warmup.end(data);
   warmup.read();
@@ -167,4 +193,62 @@ function measureStream({ algorithm, key, options }, data, n) {
   bench.end(n);
 
   assert(Buffer.isBuffer(result));
+}
+
+function measureUpdate({ algorithm, key, options }, data, n) {
+  const warmup = createMac(algorithm, key, options);
+  warmup.update(data).final();
+
+  const context = createMac(algorithm, key, options);
+  bench.start();
+  for (let i = 0; i < n; ++i)
+    context.update(data);
+  bench.end(n);
+
+  assert(Buffer.isBuffer(context.final()));
+}
+
+function measureStream({ algorithm, key, options }, data, n) {
+  const warmup = createMac(algorithm, key, options);
+  warmup.end(data);
+  warmup.read();
+
+  const context = createMac(algorithm, key, options);
+  bench.start();
+  for (let i = 0; i < n; ++i)
+    context.write(data);
+  bench.end(n);
+
+  context.end();
+  assert(Buffer.isBuffer(context.read()));
+}
+
+function measureFinal({ algorithm, key, options }, data, n, encoding) {
+  const warmup = createMac(algorithm, key, options).update(data);
+  if (encoding === undefined)
+    warmup.final();
+  else
+    warmup.final(encoding);
+
+  const contexts = new Array(n);
+  for (let i = 0; i < n; ++i)
+    contexts[i] = createMac(algorithm, key, options).update(data);
+
+  let result;
+  if (encoding === undefined) {
+    bench.start();
+    for (let i = 0; i < n; ++i)
+      result = contexts[i].final();
+    bench.end(n);
+  } else {
+    bench.start();
+    for (let i = 0; i < n; ++i)
+      result = contexts[i].final(encoding);
+    bench.end(n);
+  }
+
+  if (encoding === undefined)
+    assert(Buffer.isBuffer(result));
+  else
+    assert.strictEqual(typeof result, 'string');
 }

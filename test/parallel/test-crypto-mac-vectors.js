@@ -1,3 +1,5 @@
+// Flags: --expose-internals
+
 'use strict';
 
 const common = require('../common');
@@ -13,6 +15,7 @@ if (!hasOpenSSL(3) || process.features.openssl_is_boringssl) {
 }
 
 const assert = require('node:assert');
+const { encodingsMap } = require('internal/util');
 const {
   createMac,
   getCiphers,
@@ -147,15 +150,27 @@ if (availableMacs.has('kmac128')) {
   const vector = kmacVectors[0];
   const algorithm = 'kmac128';
   const options = { outputLength: 0 };
-  assert.deepStrictEqual(
-    createMac(algorithm, vector.key, options).update(vector.data).final(),
-    Buffer.alloc(0),
-  );
-  assert.strictEqual(
+  for (const outputEncoding of Object.keys(encodingsMap)) {
+    if (outputEncoding === 'buffer') continue;
+    assert.strictEqual(
+      createMac(algorithm, vector.key, options)
+        .update(vector.data)
+        .final(outputEncoding),
+      '',
+    );
+  }
+
+  for (const result of [
     createMac(algorithm, vector.key, options)
-      .update(vector.data).final('hex'),
-    '',
-  );
+      .update(vector.data)
+      .final(),
+    createMac(algorithm, vector.key, options)
+      .update(vector.data)
+      .final('buffer'),
+  ]) {
+    assert(Buffer.isBuffer(result));
+    assert.deepStrictEqual(result, Buffer.alloc(0));
+  }
 
   const streamed = createMac(algorithm, vector.key, options);
   streamed.on('data', common.mustNotCall());

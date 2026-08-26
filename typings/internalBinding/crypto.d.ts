@@ -646,7 +646,7 @@ declare namespace InternalCryptoBinding {
 
   interface MacHandle {
     update(data: ByteSource, encoding?: string): boolean;
-    final(): Buffer;
+    final(encoding?: string): string | Buffer;
   }
 
   interface CipherBaseHandle {

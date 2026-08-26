@@ -4,6 +4,7 @@
 #include "memory_tracker-inl.h"
 #include "node_buffer.h"
 #include "node_errors.h"
+#include "string_bytes.h"
 #include "v8.h"
 
 #if OPENSSL_WITH_EVP_MAC
@@ -61,7 +62,7 @@ void ResetMacCache(Environment* env,
   CHECK_NOT_NULL(cache);
   if (!algorithm_cache.IsEmpty()) {
     Isolate* isolate = env->isolate();
-    Local<Context> context = isolate->GetCurrentContext();
+    Local<Context> context = env->context();
     for (const auto& entry : cache->aliases()) {
       if (algorithm_cache
               ->Set(context,
@@ -158,9 +159,8 @@ EVP_MAC* GetMacImplementation(Environment* env,
   if (env->isolate()->HasPendingException()) return nullptr;
   if (result.cache_id != -1) {
     if (cache
-            ->Set(isolate->GetCurrentContext(),
-                  algorithm,
-                  Int32::New(isolate, result.cache_id))
+            ->Set(
+                env->context(), algorithm, Int32::New(isolate, result.cache_id))
             .IsNothing()) {
       return nullptr;
     }
@@ -206,7 +206,7 @@ bool RequireSettableParameter(Environment* env,
 bool InitializeMacContext(Environment* env,
                           const FunctionCallbackInfo<Value>& args,
                           InitializedMac* output) {
-  CHECK_GE(args.Length(), 10);
+  CHECK(args.Length() == 5 || args.Length() == 10);
   CHECK(args[0]->IsString());
   CHECK(args[1]->IsInt32());
   CHECK(args[2]->IsObject());
@@ -365,16 +365,14 @@ bool InitializeMacContext(Environment* env,
     return false;
   }
 
-  size_t output_size;
-  {
-    ncrypto::MarkPopErrorOnReturn mark_pop_error_on_return;
-    output_size = context.getSize();
-  }
+  const size_t output_size = context.getSize();
   if (output_size > Buffer::kMaxLength) {
+    ERR_clear_error();
     env->isolate()->ThrowException(ERR_BUFFER_TOO_LARGE(env->isolate()));
     return false;
   }
   if (has_output_length && output_size != output_length) {
+    ERR_clear_error();
     Utf8Value name(env->isolate(), args[0]);
     THROW_ERR_INVALID_ARG_VALUE(
         env,
@@ -383,6 +381,7 @@ bool InitializeMacContext(Environment* env,
     return false;
   }
   if (!has_output_length && output_size == 0) {
+    ERR_clear_error();
     THROW_ERR_CRYPTO_OPERATION_FAILED(env, "MAC did not report an output size");
     return false;
   }
@@ -396,7 +395,8 @@ bool InitializeMacContext(Environment* env,
 v8::MaybeLocal<Value> FinalizeMac(Environment* env,
                                   ncrypto::EVPMacCtxPointer* context,
                                   size_t output_size,
-                                  bool has_output_length) {
+                                  bool has_output_length,
+                                  enum encoding encoding) {
   ncrypto::DataPointer result = context->final(output_size);
   context->reset();
   if (!result) {
@@ -407,6 +407,12 @@ v8::MaybeLocal<Value> FinalizeMac(Environment* env,
     THROW_ERR_CRYPTO_OPERATION_FAILED(
         env, "MAC returned an unexpected output length");
     return {};
+  }
+  if (encoding != BUFFER) {
+    return StringBytes::Encode(env->isolate(),
+                               static_cast<const char*>(result.get()),
+                               result.size(),
+                               encoding);
   }
   if (result.size() == 0) return Buffer::New(env, 0);
 
@@ -419,9 +425,14 @@ bool UpdateMac(ncrypto::EVPMacCtxPointer* context,
                size_t length) {
   if (!*context) return false;
   if (length == 0) return true;
-  ncrypto::MarkPopErrorOnReturn mark_pop_error_on_return;
-  const bool updated = context->update({.data = data, .len = length});
-  if (!updated) context->reset();
+  const bool updated =
+      EVP_MAC_update(context->get(),
+                     reinterpret_cast<const unsigned char*>(data),
+                     length) == 1;
+  if (!updated) {
+    context->reset();
+    ERR_clear_error();
+  }
   return updated;
 }
 
@@ -539,7 +550,7 @@ void Mac::RegisterExternalReferences(ExternalReferenceRegistry* registry) {
 void Mac::New(const FunctionCallbackInfo<Value>& args) {
   CHECK(args.IsConstructCall());
 #if OPENSSL_WITH_EVP_MAC
-  CHECK_EQ(args.Length(), 10);
+  CHECK(args.Length() == 5 || args.Length() == 10);
   Environment* env = Environment::GetCurrent(args);
   InitializedMac initialized;
   if (!InitializeMacContext(env, args, &initialized)) return;
@@ -579,9 +590,16 @@ void Mac::MacFinal(const FunctionCallbackInfo<Value>& args) {
     THROW_ERR_CRYPTO_OPERATION_FAILED(env, "MAC context is not initialized");
     return;
   }
+  enum encoding encoding = BUFFER;
+  if (args.Length() >= 1) {
+    encoding = ParseEncoding(env->isolate(), args[0], BUFFER);
+  }
   Local<Value> result;
-  if (FinalizeMac(
-          env, &mac->context_, mac->output_size_, mac->has_output_length_)
+  if (FinalizeMac(env,
+                  &mac->context_,
+                  mac->output_size_,
+                  mac->has_output_length_,
+                  encoding)
           .ToLocal(&result)) {
     args.GetReturnValue().Set(result);
   }
