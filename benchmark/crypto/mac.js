@@ -78,7 +78,7 @@ const bench = common.createBenchmark(main, {
     return false;
   },
   test: {
-    operation: ['get-macs-cold', 'create-cold'],
+    operation: ['create-cold'],
     algorithm: ['hmac-sha256'],
     length: [0],
     n: [1],
