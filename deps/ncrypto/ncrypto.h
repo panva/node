@@ -82,6 +82,14 @@
 #define NCRYPTO_HAS_ASN1_BIT_STRING_GET_LENGTH 0
 #endif
 
+// BoringSSL's X.509 signer can encode only its restricted RSA-PSS parameter
+// profile. Other supported backends accept the full runtime signing profile.
+#if NCRYPTO_USE_BORINGSSL
+#define NCRYPTO_HAS_X509_RSA_PSS_FLEXIBLE_PARAMETERS 0
+#else
+#define NCRYPTO_HAS_X509_RSA_PSS_FLEXIBLE_PARAMETERS 1
+#endif
+
 #if NCRYPTO_USE_OPENSSL3_PROVIDER
 #include <openssl/core_names.h>
 #include <openssl/encoder.h>
@@ -1665,8 +1673,19 @@ struct X509RawExtension final {
   std::vector<unsigned char> value;
 };
 
+std::optional<std::vector<X509RawExtension>> inspectX509Extensions(
+    const STACK_OF(X509_EXTENSION) * extensions);
+
 class X509View final {
  public:
+  enum class CheckKeyResult {
+    MATCH,                  // The requested comparison passed.
+    NO_MATCH,               // It completed and produced an ordinary mismatch.
+    INVALID_CERTIFICATE,    // Reserved for certificate verification.
+    UNSUPPORTED_OPERATION,  // The backend cannot compare these keys.
+    OPERATION_FAILED,       // The backend failed for another reason.
+  };
+
   static X509View From(const SSLPointer& ssl);
   static X509View From(const SSLCtxPointer& ctx);
 
@@ -1709,7 +1728,7 @@ class X509View final {
 
   bool isCA() const;
   bool isIssuedBy(const X509View& other) const;
-  bool checkPrivateKey(const EVPKeyPointer& pkey) const;
+  CheckKeyResult checkPrivateKey(const EVPKeyPointer& pkey) const;
   bool checkPublicKey(const EVPKeyPointer& pkey) const;
 
   std::optional<std::string> getFingerprint(const Digest& method) const;
