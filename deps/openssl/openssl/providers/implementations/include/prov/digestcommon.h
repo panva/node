@@ -84,7 +84,6 @@ const OSSL_DISPATCH ossl_##name##_functions[] = {                              \
     { OSSL_FUNC_DIGEST_FINAL, (void (*)(void))name##_internal_final },         \
     { OSSL_FUNC_DIGEST_FREECTX, (void (*)(void))name##_freectx },              \
     { OSSL_FUNC_DIGEST_DUPCTX, (void (*)(void))name##_dupctx },                \
-    { OSSL_FUNC_DIGEST_COPYCTX, (void (*)(void))name##_copyctx },              \
     PROV_DISPATCH_FUNC_DIGEST_GET_PARAMS(name)
 
 # define PROV_DISPATCH_FUNC_DIGEST_CONSTRUCT_END                               \
