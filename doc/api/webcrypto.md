@@ -114,7 +114,7 @@ const { subtle } = globalThis.crypto;
 
 ## Modern Algorithms in the Web Cryptography API
 
-> Stability: 1.1 - Active development
+> Stability: 1.2 - Release candidate
 
 Node.js provides an implementation of the following features from the
 [Modern Algorithms in the Web Cryptography API](https://wicg.github.io/webcrypto-modern-algos/)
@@ -764,7 +764,7 @@ added: v15.0.0
 added: v24.7.0
 -->
 
-> Stability: 1.1 - Active development
+> Stability: 1.2 - Release candidate
 
 <!--lint disable maximum-line-length remark-lint-->
 
@@ -787,7 +787,7 @@ See [Checking for runtime algorithm support][] for an example use of this method
 added: v24.7.0
 -->
 
-> Stability: 1.1 - Active development
+> Stability: 1.2 - Release candidate
 
 * `decapsulationAlgorithm` {string|Algorithm}
 * `decapsulationKey` {CryptoKey}
@@ -813,7 +813,7 @@ The algorithms currently supported include:
 added: v24.7.0
 -->
 
-> Stability: 1.1 - Active development
+> Stability: 1.2 - Release candidate
 
 * `decapsulationAlgorithm` {string|Algorithm}
 * `decapsulationKey` {CryptoKey}
@@ -1019,7 +1019,7 @@ whose value is one of the above.
 added: v24.7.0
 -->
 
-> Stability: 1.1 - Active development
+> Stability: 1.2 - Release candidate
 
 * `encapsulationAlgorithm` {string|Algorithm}
 * `encapsulationKey` {CryptoKey}
@@ -1043,7 +1043,7 @@ The algorithms currently supported include:
 added: v24.7.0
 -->
 
-> Stability: 1.1 - Active development
+> Stability: 1.2 - Release candidate
 
 * `encapsulationAlgorithm` {string|Algorithm}
 * `encapsulationKey` {CryptoKey}
@@ -1157,7 +1157,7 @@ See [Key formats][] for the formats supported by each algorithm.
 added: v24.7.0
 -->
 
-> Stability: 1.1 - Active development
+> Stability: 1.2 - Release candidate
 
 * `key` {CryptoKey} A private key from which to derive the corresponding public key.
 * `keyUsages` {string\[]} See [Key usages][].
