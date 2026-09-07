@@ -1401,7 +1401,8 @@ class DHPointer final {
     CHECK_FAILED = 512,
   };
   // Check to see if the given public key is suitable for this DH instance.
-  CheckPublicKeyResult checkPublicKey(const BignumPointer& pub_key);
+  CheckPublicKeyResult checkPublicKey(const BignumPointer& pub_key,
+                                      EVPKeyPointer* validated_peer = nullptr);
 
   DataPointer getPrime() const;
   size_t getPrimeBits() const;
@@ -1410,7 +1411,9 @@ class DHPointer final {
   DataPointer getPrivateKey() const;
   bool hasPrivateKey() const;
   DataPointer generateKeys();
-  DataPointer computeSecret(const BignumPointer& peer) const;
+  DataPointer computeSecret(
+      const BignumPointer& peer,
+      const EVPKeyPointer* validated_peer = nullptr) const;
 
   bool setPublicKey(BignumPointer&& key);
   bool setPrivateKey(BignumPointer&& key);

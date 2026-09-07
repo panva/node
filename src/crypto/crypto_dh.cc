@@ -303,7 +303,9 @@ void ComputeSecret(const FunctionCallbackInfo<Value>& args) {
     return THROW_ERR_OUT_OF_RANGE(env, "secret is too big");
   BignumPointer key(key_buf.data(), key_buf.size());
 
-  switch (dh.checkPublicKey(key)) {
+  ncrypto::EVPKeyPointer validated_peer;
+  const uint64_t generation = ncrypto::getFipsStateGeneration();
+  switch (dh.checkPublicKey(key, &validated_peer)) {
     case DHPointer::CheckPublicKeyResult::CHECK_FAILED:
       return THROW_ERR_CRYPTO_INVALID_KEYTYPE(env,
                                               "Unspecified validation error");
@@ -322,7 +324,10 @@ void ComputeSecret(const FunctionCallbackInfo<Value>& args) {
         env, "Cannot compute shared secret without a private key");
   }
 
-  auto dp = dh.computeSecret(key);
+  auto dp = dh.computeSecret(key,
+                             generation == ncrypto::getFipsStateGeneration()
+                                 ? &validated_peer
+                                 : nullptr);
   if (!dp) {
     return THROW_ERR_CRYPTO_OPERATION_FAILED(env,
                                              "Failed to compute shared secret");

@@ -2241,7 +2241,7 @@ DHPointer::CheckResult DHPointer::check() {
 }
 
 DHPointer::CheckPublicKeyResult DHPointer::checkPublicKey(
-    const BignumPointer& pub_key) {
+    const BignumPointer& pub_key, EVPKeyPointer* validated_peer) {
   ClearErrorOnReturn clearErrorOnReturn;
   if (!pub_key || !*this) {
     return DHPointer::CheckPublicKeyResult::CHECK_FAILED;
@@ -2293,6 +2293,7 @@ DHPointer::CheckPublicKeyResult DHPointer::checkPublicKey(
   if (EVP_PKEY_public_check(ctx.get()) != 1) {
     return DHPointer::CheckPublicKeyResult::INVALID;
   }
+  if (validated_peer != nullptr) *validated_peer = std::move(peer);
   return CheckPublicKeyResult::NONE;
 #else
   int codes = 0;
@@ -2491,7 +2492,8 @@ size_t DHPointer::size() const {
 #endif
 }
 
-DataPointer DHPointer::computeSecret(const BignumPointer& peer) const {
+DataPointer DHPointer::computeSecret(
+    const BignumPointer& peer, const EVPKeyPointer* validated_peer) const {
   ClearErrorOnReturn clearErrorOnReturn;
   if (!*this || !peer) return {};
 
@@ -2512,7 +2514,10 @@ DataPointer DHPointer::computeSecret(const BignumPointer& peer) const {
   }
 
   EVPKeyPointer peer_key;
-  if (group_name_ != nullptr) {
+  EVP_PKEY* peer_pkey = nullptr;
+  if (validated_peer != nullptr && *validated_peer) {
+    peer_pkey = validated_peer->get();
+  } else if (group_name_ != nullptr) {
     peer_key = NewDhPKey(group_name_, peer.get());
   } else {
     DeleteFnPtr<BIGNUM, BN_free> p;
@@ -2520,13 +2525,17 @@ DataPointer DHPointer::computeSecret(const BignumPointer& peer) const {
     if (!GetDhParams(dh_.get(), &p, &g)) return {};
     peer_key = NewDhPKey(p.get(), g.get(), peer.get());
   }
-  if (!peer_key) return {};
+  if (peer_pkey == nullptr) peer_pkey = peer_key.get();
+  if (peer_pkey == nullptr) return {};
 
   EVPKeyCtxPointer ctx(EVP_PKEY_CTX_new(dh_.get(), nullptr));
   size_t out_size = size();
   if (!ctx || EVP_PKEY_derive_init(ctx.get()) != 1 ||
       EVP_PKEY_CTX_set_dh_pad(ctx.get(), 1) != 1 ||
-      EVP_PKEY_derive_set_peer(ctx.get(), peer_key.get()) != 1 ||
+      EVP_PKEY_derive_set_peer_ex(
+          ctx.get(),
+          peer_pkey,
+          validated_peer == nullptr || !*validated_peer) != 1 ||
       EVP_PKEY_derive(ctx.get(), nullptr, &out_size) != 1) {
     return {};
   }
