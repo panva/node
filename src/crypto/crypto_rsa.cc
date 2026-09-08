@@ -549,7 +549,7 @@ bool GetRsaKeyDetail(Environment* env,
 
   // TODO(tniessen): Remove the "else" branch once we drop support for OpenSSL
   // versions older than 1.1.1e via FIPS / dynamic linking.
-  const ncrypto::Rsa rsa = m_pkey;
+  const auto rsa = ncrypto::Rsa::PublicOnly(m_pkey);
   if (!rsa) return false;
 
   auto pub_key = rsa.getPublicKey();
