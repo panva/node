@@ -5562,12 +5562,16 @@ ECKeyPointer::ECKeyPointer(const EVPKeyPointer& key) : ECKeyPointer() {
 ECKeyPointer::ECKeyPointer(ECKeyPointer&& other) noexcept
     : group_(std::move(other.group_)),
       pub_(std::move(other.pub_)),
-      priv_(std::move(other.priv_)) {}
+      priv_(std::move(other.priv_)),
+      provider_key_(std::move(other.provider_key_)),
+      provider_key_generation_(other.provider_key_generation_) {}
 
 ECKeyPointer& ECKeyPointer::operator=(ECKeyPointer&& other) noexcept {
   group_ = std::move(other.group_);
   pub_ = std::move(other.pub_);
   priv_ = std::move(other.priv_);
+  provider_key_ = std::move(other.provider_key_);
+  provider_key_generation_ = other.provider_key_generation_;
   return *this;
 }
 
@@ -5576,6 +5580,7 @@ ECKeyPointer::~ECKeyPointer() {
 }
 
 void ECKeyPointer::reset() {
+  provider_key_.reset();
   group_.reset();
   pub_.reset();
   priv_.reset();
@@ -5599,6 +5604,7 @@ ECKeyPointer ECKeyPointer::clone() const {
 
 bool ECKeyPointer::generate() {
   if (!group_) return false;
+  const uint64_t generation = getFipsStateGeneration();
   const int nid = EC_GROUP_get_curve_name(group_.get());
   auto ctx = EVPKeyCtxPointer::NewFromID(EVP_PKEY_EC);
   if (!ctx || !ctx.initForKeygen() ||
@@ -5642,11 +5648,16 @@ bool ECKeyPointer::generate() {
 
   priv_ = std::move(priv);
   pub_.reset(point.release());
+  // Retain the generated key so the first derivation does not have to import
+  // the components that were just read back out of it.
+  provider_key_ = std::move(pkey);
+  provider_key_generation_ = generation;
   return true;
 }
 
 bool ECKeyPointer::setPublicKey(const ECPointPointer& pub) {
   if (!group_ || !pub) return false;
+  provider_key_.reset();
   pub_.reset(EC_POINT_dup(pub.get(), group_.get()));
   return pub_ != nullptr;
 }
@@ -5667,12 +5678,14 @@ bool ECKeyPointer::setPublicKeyRaw(const BignumPointer& x,
   if (!point || !point.setFromBuffer({ptr, uncompressed_len}, group_.get())) {
     return false;
   }
+  provider_key_.reset();
   pub_.reset(point.release());
   return true;
 }
 
 bool ECKeyPointer::setPrivateKey(const BignumPointer& priv) {
   if (!group_ || !priv) return false;
+  provider_key_.reset();
   priv_.reset(BN_dup(priv.get()));
   return priv_ != nullptr;
 }
@@ -5727,15 +5740,23 @@ bool ECKeyPointer::checkKey() const {
 
 DataPointer ECKeyPointer::computeSecret(const ECPointPointer& peer) const {
   if (!group_ || !priv_ || !peer) return {};
-  auto our_key = EVPKeyPointer::New();
+  // Retain the provider representation of the local key across calls. Every
+  // mutator drops it before changing the components, and a FIPS transition
+  // invalidates it through the recorded generation.
+  const uint64_t generation = getFipsStateGeneration();
+  if (!provider_key_ || provider_key_generation_ != generation) {
+    auto key = EVPKeyPointer::New();
+    if (!key || !key.set(*this)) return {};
+    provider_key_ = std::move(key);
+    provider_key_generation_ = generation;
+  }
   auto their_key = EVPKeyPointer::New();
   auto their_ec = ECKeyPointer::New(group_.get());
-  if (!our_key || !their_key || !our_key.set(*this) ||
-      !their_ec.setPublicKey(peer) || !their_key.set(their_ec)) {
+  if (!their_key || !their_ec.setPublicKey(peer) || !their_key.set(their_ec)) {
     return {};
   }
 
-  EVPKeyCtxPointer ctx(EVP_PKEY_CTX_new(our_key.get(), nullptr));
+  EVPKeyCtxPointer ctx(EVP_PKEY_CTX_new(provider_key_.get(), nullptr));
   size_t out_len = 0;
   if (!ctx || EVP_PKEY_derive_init(ctx.get()) != 1 ||
       EVP_PKEY_derive_set_peer(ctx.get(), their_key.get()) != 1 ||

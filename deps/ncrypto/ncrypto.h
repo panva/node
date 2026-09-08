@@ -1800,6 +1800,8 @@ class ECKeyPointer final {
   DeleteFnPtr<EC_GROUP, EC_GROUP_free> group_;
   DeleteFnPtr<EC_POINT, EC_POINT_free> pub_;
   DeleteFnPtr<BIGNUM, BN_clear_free> priv_;
+  mutable EVPKeyPointer provider_key_;
+  mutable uint64_t provider_key_generation_ = 0;
 #else
   DeleteFnPtr<EC_KEY, EC_KEY_free> key_;
 #endif
