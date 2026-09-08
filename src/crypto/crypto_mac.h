@@ -44,6 +44,11 @@ class Mac final : public BaseObject {
 #endif
 };
 
+// Creates an HMAC context over the Environment's cached HMAC implementation,
+// fetching it on first use and after a FIPS transition. Must only be called on
+// the Environment's own thread, because the cache is not synchronized.
+ncrypto::HMACCtxPointer NewHmacCtx(Environment* env);
+
 }  // namespace crypto
 }  // namespace node
 

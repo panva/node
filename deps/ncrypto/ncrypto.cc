@@ -7629,6 +7629,15 @@ HMACCtxPointer HMACCtxPointer::New() {
 
   return HMACCtxPointer(std::move(mac), std::move(ctx));
 }
+
+HMACCtxPointer HMACCtxPointer::New(EVP_MAC* mac) {
+  if (mac == nullptr) return {};
+
+  auto ctx = EVPMacCtxPointer::New(mac);
+  if (!ctx) return {};
+
+  return HMACCtxPointer({}, std::move(ctx));
+}
 #endif  // OPENSSL_WITH_EVP_MAC
 
 DataPointer hashDigest(const Buffer<const unsigned char>& buf,

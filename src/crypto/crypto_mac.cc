@@ -497,6 +497,22 @@ const std::vector<std::string>& GetSupportedMacAlgorithms(Environment* env) {
 }  // namespace
 #endif  // OPENSSL_WITH_EVP_MAC
 
+ncrypto::HMACCtxPointer NewHmacCtx(Environment* env) {
+#if OPENSSL_WITH_EVP_MAC
+  // Only provider builds allocate the cache. EVP_MAC_CTX_new takes its own
+  // reference to the implementation, so neither the cache entry nor the
+  // uncached owner has to outlive this call.
+  if (env->provider_mac_cache != nullptr) {
+    auto fetched = FetchAndMaybeCacheMac(env, OSSL_MAC_NAME_HMAC);
+    return ncrypto::HMACCtxPointer::New(
+        fetched.cached_mac != nullptr ? fetched.cached_mac : fetched.mac.get());
+  }
+#else
+  static_cast<void>(env);
+#endif
+  return ncrypto::HMACCtxPointer::New();
+}
+
 #if OPENSSL_WITH_EVP_MAC
 bool Mac::MacUpdate(const char* data, size_t length) {
   if (!context_) return false;

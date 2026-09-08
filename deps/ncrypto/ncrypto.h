@@ -2025,6 +2025,9 @@ class HMACCtxPointer final {
   bool digestInto(Buffer<void>* buf);
 
   static HMACCtxPointer New();
+  // Creates a context over a MAC implementation owned elsewhere, such as one
+  // borrowed from a MacCache. EVP_MAC_CTX_new takes its own reference.
+  static HMACCtxPointer New(EVP_MAC* mac);
 
  private:
   HMACCtxPointer(EVPMacPointer&& mac, EVPMacCtxPointer&& ctx);
