@@ -2714,16 +2714,6 @@ DataPointer hkdf(const Digest& md,
     return {};
   }
 
-  auto ctx = EVPKeyCtxPointer::NewFromID(EVP_PKEY_HKDF);
-  // OpenSSL < 3.0.0 accepted only a void* as the argument of
-  // EVP_PKEY_CTX_set_hkdf_md.
-  const EVP_MD* md_ptr = md;
-  if (!ctx || !EVP_PKEY_derive_init(ctx.get()) ||
-      !EVP_PKEY_CTX_set_hkdf_md(ctx.get(), md_ptr) ||
-      !EVP_PKEY_CTX_add1_hkdf_info(ctx.get(), info.data, info.len)) {
-    return {};
-  }
-
   std::string_view actual_salt;
   static const char default_salt[EVP_MAX_MD_SIZE] = {0};
   if (salt.len > 0) {
@@ -2732,12 +2722,11 @@ DataPointer hkdf(const Digest& md,
     actual_salt = {default_salt, static_cast<unsigned>(md.size())};
   }
 
-  // We do not use EVP_PKEY_HKDF_MODE_EXTRACT_AND_EXPAND because and instead
-  // implement the extraction step ourselves because EVP_PKEY_derive does not
-  // handle zero-length keys, which are required for Web Crypto.
-  // TODO(jasnell): Once OpenSSL 1.1.1 support is dropped completely, and once
-  // BoringSSL is confirmed to support it, wen can hopefully drop this and use
-  // EVP_KDF directly which does support zero length keys.
+  // Extraction is done here rather than through the KDF's extract-and-expand
+  // mode. The legacy path below requires it because EVP_PKEY_derive rejects
+  // the zero-length keys Web Crypto allows, and on OpenSSL 3 a one-shot HMAC()
+  // measures faster than driving the provider's extract step. Expansion
+  // therefore always receives a pseudorandom key of exactly one digest block.
   unsigned char pseudorandom_key[EVP_MAX_MD_SIZE];
   unsigned pseudorandom_key_len = sizeof(pseudorandom_key);
 
@@ -2750,19 +2739,64 @@ DataPointer hkdf(const Digest& md,
            &pseudorandom_key_len) == nullptr) {
     return {};
   }
-  if (!EVP_PKEY_CTX_hkdf_mode(ctx.get(), EVP_PKEY_HKDEF_MODE_EXPAND_ONLY) ||
+
+  auto buf = DataPointer::Alloc(length);
+  if (!buf) return {};
+
+#if OPENSSL_VERSION_MAJOR >= 3
+  // Expand through EVP_KDF directly. The EVP_PKEY_HKDF interface reaches the
+  // same provider implementation, but only after allocating a second context
+  // and translating every parameter across the legacy bridge.
+  auto kdf = DeleteFnPtr<EVP_KDF, EVP_KDF_free>{
+      EVP_KDF_fetch(nullptr, OSSL_KDF_NAME_HKDF, nullptr)};
+  if (!kdf) return {};
+
+  auto kctx =
+      DeleteFnPtr<EVP_KDF_CTX, EVP_KDF_CTX_free>{EVP_KDF_CTX_new(kdf.get())};
+  if (!kctx) return {};
+
+  const char* md_name = EVP_MD_get0_name(md);
+  if (md_name == nullptr) return {};
+
+  int mode = EVP_KDF_HKDF_MODE_EXPAND_ONLY;
+  std::array<OSSL_PARAM, 5> params;
+  size_t n = 0;
+  params[n++] = OSSL_PARAM_construct_int(OSSL_KDF_PARAM_MODE, &mode);
+  params[n++] = OSSL_PARAM_construct_utf8_string(
+      OSSL_KDF_PARAM_DIGEST, const_cast<char*>(md_name), 0);
+  params[n++] = OSSL_PARAM_construct_octet_string(
+      OSSL_KDF_PARAM_KEY, pseudorandom_key, pseudorandom_key_len);
+  if (info.len > 0) {
+    params[n++] = OSSL_PARAM_construct_octet_string(
+        OSSL_KDF_PARAM_INFO, const_cast<unsigned char*>(info.data), info.len);
+  }
+  params[n++] = OSSL_PARAM_construct_end();
+
+  if (EVP_KDF_derive(kctx.get(),
+                     static_cast<unsigned char*>(buf.get()),
+                     length,
+                     params.data()) != 1) {
+    return {};
+  }
+#else
+  auto ctx = EVPKeyCtxPointer::NewFromID(EVP_PKEY_HKDF);
+  // OpenSSL < 3.0.0 accepted only a void* as the argument of
+  // EVP_PKEY_CTX_set_hkdf_md.
+  const EVP_MD* md_ptr = md;
+  if (!ctx || !EVP_PKEY_derive_init(ctx.get()) ||
+      !EVP_PKEY_CTX_set_hkdf_md(ctx.get(), md_ptr) ||
+      !EVP_PKEY_CTX_add1_hkdf_info(ctx.get(), info.data, info.len) ||
+      !EVP_PKEY_CTX_hkdf_mode(ctx.get(), EVP_PKEY_HKDEF_MODE_EXPAND_ONLY) ||
       !EVP_PKEY_CTX_set1_hkdf_key(
           ctx.get(), pseudorandom_key, pseudorandom_key_len)) {
     return {};
   }
 
-  auto buf = DataPointer::Alloc(length);
-  if (!buf) return {};
-
   if (EVP_PKEY_derive(
           ctx.get(), static_cast<unsigned char*>(buf.get()), &length) <= 0) {
     return {};
   }
+#endif
 
   return buf;
 }
