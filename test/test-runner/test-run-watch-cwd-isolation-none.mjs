@@ -8,6 +8,7 @@ skipIfNoWatch();
 
 const controller = new AbortController();
 const stream = run({
+  // Avoid delayed file creation notifications triggering a watch restart.
   cwd: fixtures.path('test-runner-watch'),
   watch: true,
   signal: controller.signal,
