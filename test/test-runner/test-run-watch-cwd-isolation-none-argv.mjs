@@ -28,8 +28,11 @@ stream.on('test:watch:restarted', common.mustNotCall('test:watch:restarted'));
 stream.on('test:fail', common.mustNotCall('test:fail'));
 stream.on('test:pass', common.mustCall((data) => passed.push(data.name)));
 
-// eslint-disable-next-line no-empty-pattern
-for await (const {} of stream);
+for await (const { type, data } of stream) {
+  if (type === 'test:diagnostic' || type === 'test:stderr') {
+    console.error(data.message);
+  }
+}
 
 // Validate the expected test ran by name:
 assert.deepStrictEqual(passed, ['test has ran']);

@@ -25,5 +25,8 @@ stream.on('test:watch:restarted', common.mustNotCall('test:watch:restarted'));
 stream.on('test:fail', common.mustNotCall('test:fail'));
 stream.on('test:pass', common.mustCall());
 
-// eslint-disable-next-line no-empty-pattern
-for await (const {} of stream);
+for await (const { type, data } of stream) {
+  if (type === 'test:diagnostic' || type === 'test:stderr') {
+    console.error(data.message);
+  }
+}
