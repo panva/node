@@ -147,6 +147,7 @@ await assert.rejects(
     kCryptoJobWebCrypto,
     kSignJobModeSign,
     getCryptoKeyHandle(key),
+    key.algorithm.length,
     'KMAC128',
     undefined,
     9,

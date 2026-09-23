@@ -362,6 +362,7 @@ declare namespace InternalCryptoBinding {
       mode: CryptoJobWebCryptoMode,
       signMode: S,
       key: KeyObjectHandle,
+      keyLength: number,
       algorithm: string,
       customization: OptionalByteSource,
       outputLength: number,

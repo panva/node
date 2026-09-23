@@ -2365,7 +2365,8 @@ added: v24.8.0
 * Type: {number}
 
 The optional number of bits in the KMAC key. This is optional and should
-be omitted for most cases. The key length must be at least 32 and a multiple of 8.
+be omitted for most cases. The key length must be at least 32. Lengths that are not
+multiples of 8 require OpenSSL 4.0 with cSHAKE support.
 
 #### `kmacImportParams.name`
 
@@ -2415,8 +2416,8 @@ added: v24.8.0
 
 The number of bits to generate for the KMAC key. If omitted,
 the length will be determined by the KMAC algorithm used.
-This is optional and should be omitted for most cases. Must be at least 32 and a
-multiple of 8.
+This is optional and should be omitted for most cases. Must be at least 32.
+Lengths that are not multiples of 8 require OpenSSL 4.0 with cSHAKE support.
 
 #### `kmacKeyGenParams.name`
 
@@ -2454,8 +2455,11 @@ added:
  - v24.15.0
 -->
 
-* Type: {number} represents the requested output length in bits. Must be a
-  multiple of 8.
+* Type: {number} represents the requested output length in bits. Lengths that are
+  not multiples of 8 require OpenSSL 4.0 with cSHAKE support.
+
+For outputs that are not byte-aligned, the unused high bits in the final byte are
+zero.
 
 #### `kmacParams.customization`
 
@@ -2466,6 +2470,9 @@ added: v24.8.0
 * Type: {ArrayBuffer|TypedArray|DataView|Buffer|undefined}
 
 The `customization` member represents the optional customization string.
+
+When the key or output length is not a multiple of 8, the customization string
+must be at most 512 bytes and cannot contain null bytes.
 
 ### Class: `Pbkdf2Params`
 

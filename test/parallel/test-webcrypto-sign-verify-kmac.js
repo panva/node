@@ -11,6 +11,7 @@ if (!hasOpenSSL(3))
   common.skip('requires OpenSSL >= 3');
 
 const assert = require('assert');
+const { getHashes } = require('crypto');
 const { subtle } = globalThis.crypto;
 
 const vectors = require('../fixtures/crypto/kmac')();
@@ -233,12 +234,18 @@ async function testSign({ algorithm,
   assert(!(await subtle.verify(algorithm, key, invalidSignature, data)));
 
   const nonByteOutput = { ...algorithm, outputLength: 9 };
-  await assert.rejects(
-    subtle.sign(nonByteOutput, key, data),
-    { name: 'NotSupportedError', message: 'Invalid KmacParams outputLength' });
-  await assert.rejects(
-    subtle.verify(nonByteOutput, key, signature, data),
-    { name: 'NotSupportedError', message: 'Invalid KmacParams outputLength' });
+  if (getHashes().includes('cshake128')) {
+    const signature = await subtle.sign(nonByteOutput, key, data);
+    assert.strictEqual(signature.byteLength, 2);
+    assert.strictEqual(await subtle.verify(nonByteOutput, key, signature, data), true);
+  } else {
+    await assert.rejects(
+      subtle.sign(nonByteOutput, key, data),
+      { name: 'NotSupportedError', message: 'Invalid KmacParams outputLength' });
+    await assert.rejects(
+      subtle.verify(nonByteOutput, key, signature, data),
+      { name: 'NotSupportedError', message: 'Invalid KmacParams outputLength' });
+  }
 
   await assert.rejects(
     subtle.importKey(

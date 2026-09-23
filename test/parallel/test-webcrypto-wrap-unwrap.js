@@ -8,7 +8,7 @@ if (!common.hasCrypto)
 const { hasOpenSSL, hasFIPS, isBoringSSL } = require('../common/crypto');
 
 const assert = require('assert');
-const { getFips } = require('crypto');
+const { getFips, getHashes } = require('crypto');
 const { subtle } = globalThis.crypto;
 const fips3 = hasFIPS(3);
 const fips35 = hasFIPS(3, 5);
@@ -495,11 +495,21 @@ async function testNonByteLengthWrapUnwrap({
       for (const [i, format] of ['raw-secret', 'jwk'].entries()) {
         const wrapAlgorithm = { name: 'AES-GCM', iv: new Uint8Array(12).fill(i) };
         const wrapped = await subtle.wrapKey(format, kmacKey, wrappingKey, wrapAlgorithm);
-        await assert.rejects(
-          subtle.unwrapKey(
-            format, wrapped, wrappingKey, wrapAlgorithm,
-            { name, length: 255 }, true, ['sign', 'verify']),
-          { name: 'NotSupportedError', message: 'Invalid key length' });
+        const partial = subtle.unwrapKey(
+          format, wrapped, wrappingKey, wrapAlgorithm,
+          { name, length: 255 }, true, ['sign', 'verify']);
+        if (getHashes().includes(name === 'KMAC128' ? 'cshake128' : 'cshake256')) {
+          const unwrapped = await partial;
+          assert.strictEqual(unwrapped.algorithm.length, 255);
+          const canonical = new Uint8Array(keyData);
+          canonical[31] &= 0xfe;
+          assert.deepStrictEqual(
+            new Uint8Array(await subtle.exportKey('raw-secret', unwrapped)), canonical);
+        } else {
+          await assert.rejects(
+            partial,
+            { name: 'NotSupportedError', message: 'Invalid key length' });
+        }
 
         const unwrapped = await subtle.unwrapKey(
           format, wrapped, wrappingKey, wrapAlgorithm,

@@ -6,6 +6,7 @@
 #if OPENSSL_WITH_EVP_MAC
 #include <openssl/core_names.h>
 #include <openssl/params.h>
+#include <array>
 #include <utility>
 #include "crypto/crypto_keys.h"
 #include "crypto/crypto_sig.h"
@@ -23,6 +24,7 @@ using v8::Local;
 using v8::Maybe;
 using v8::MaybeLocal;
 using v8::Nothing;
+using v8::Number;
 using v8::Object;
 using v8::Uint32;
 using v8::Value;
@@ -34,6 +36,7 @@ KmacConfig::KmacConfig(KmacConfig&& other) noexcept
       signature(std::move(other.signature)),
       customization(std::move(other.customization)),
       variant(other.variant),
+      key_length(other.key_length),
       length(other.length) {}
 
 KmacConfig& KmacConfig::operator=(KmacConfig&& other) noexcept {
@@ -65,8 +68,11 @@ Maybe<void> KmacTraits::AdditionalConfig(
   ASSIGN_OR_RETURN_UNWRAP(&key, args[offset + 1], Nothing<void>());
   params->key = key->Data().addRef();
 
-  CHECK(args[offset + 2]->IsString());  // Algorithm name
-  Utf8Value algorithm_name(env->isolate(), args[offset + 2]);
+  CHECK(args[offset + 2]->IsNumber());  // Key length in bits
+  params->key_length = args[offset + 2].As<Number>()->Value();
+
+  CHECK(args[offset + 3]->IsString());  // Algorithm name
+  Utf8Value algorithm_name(env->isolate(), args[offset + 3]);
   std::string_view algorithm_str = algorithm_name.ToStringView();
 
   // Convert string to enum and validate
@@ -79,8 +85,8 @@ Maybe<void> KmacTraits::AdditionalConfig(
   }
 
   // Customization string (may be empty or undefined).
-  if (!args[offset + 3]->IsUndefined()) {
-    ArrayBufferOrViewContents<char> customization(args[offset + 3]);
+  if (!args[offset + 4]->IsUndefined()) {
+    ArrayBufferOrViewContents<char> customization(args[offset + 4]);
     if (!customization.CheckSizeInt32()) [[unlikely]] {
       THROW_ERR_OUT_OF_RANGE(env, "customization is too big");
       return Nothing<void>();
@@ -91,18 +97,18 @@ Maybe<void> KmacTraits::AdditionalConfig(
   }
   // If undefined, params->customization remains uninitialized (size 0).
 
-  CHECK(args[offset + 4]->IsUint32());  // Length
-  params->length = args[offset + 4].As<Uint32>()->Value();
+  CHECK(args[offset + 5]->IsUint32());  // Length
+  params->length = args[offset + 5].As<Uint32>()->Value();
 
-  ArrayBufferOrViewContents<char> data(args[offset + 5]);
+  ArrayBufferOrViewContents<char> data(args[offset + 6]);
   if (!data.CheckSizeInt32()) [[unlikely]] {
     THROW_ERR_OUT_OF_RANGE(env, "data is too big");
     return Nothing<void>();
   }
   params->data = IsCryptoJobAsync(mode) ? data.ToCopy() : data.ToByteSource();
 
-  if (!args[offset + 6]->IsUndefined()) {
-    ArrayBufferOrViewContents<char> signature(args[offset + 6]);
+  if (!args[offset + 7]->IsUndefined()) {
+    ArrayBufferOrViewContents<char> signature(args[offset + 7]);
     if (!signature.CheckSizeInt32()) [[unlikely]] {
       THROW_ERR_OUT_OF_RANGE(env, "signature is too big");
       return Nothing<void>();
@@ -114,12 +120,109 @@ Maybe<void> KmacTraits::AdditionalConfig(
   return JustVoid();
 }
 
+namespace {
+
+// SP 800-185, section 2.3.1. Inferred key bit lengths may exceed uint32_t.
+size_t EncodeKmacInteger(uint64_t value,
+                         bool right,
+                         std::array<unsigned char, sizeof(uint64_t) + 1>* out) {
+  size_t bytes = 1;
+  for (uint64_t remaining = value; remaining > 0xff; remaining >>= CHAR_BIT) {
+    bytes++;
+  }
+  for (size_t i = 0; i < bytes; i++) {
+    (*out)[(right ? 0 : 1) + bytes - i - 1] = value & 0xff;
+    value >>= CHAR_BIT;
+  }
+  (*out)[right ? bytes : 0] = static_cast<unsigned char>(bytes);
+  return bytes + 1;
+}
+
+bool KmacWithCShake(const KmacConfig& params, ByteSource* out) {
+  const bool is_128 = params.variant == KmacVariant::KMAC128;
+  const auto digest =
+      ncrypto::Digest::FromName(is_128 ? "cshake128" : "cshake256");
+  auto ctx = ncrypto::EVPMDCtxPointer::New();
+  CShakeOptions options;
+  options.function_name = "KMAC";
+  options.flags = CShakeOptions::kFunctionName | CShakeOptions::kCustomization;
+  if (!params.customization.empty()) {
+    options.customization.assign(params.customization.data<char>(),
+                                 params.customization.size());
+    // OpenSSL's cSHAKE customization parameter is a C string.
+    if (options.customization.find('\0') != std::string::npos) return false;
+  }
+  if (!options.Initialize(&ctx, digest.get())) return false;
+
+  // KMAC128/256(K, X, L, S) = cSHAKE128/256(
+  //   bytepad(encode_string(K), rate) || X || right_encode(L), L, "KMAC", S).
+  // Stream the bytepad prefix without making another copy of the key.
+  // See SP 800-185, section 4.3.
+  const uint32_t rate = is_128 ? 168 : 136;
+  std::array<unsigned char, sizeof(uint64_t) + 1> encoded;
+  size_t size = EncodeKmacInteger(rate, /* right */ false, &encoded);
+  if (!ctx.digestUpdate({encoded.data(), size})) return false;
+  size_t prefix_size = size;
+  size = EncodeKmacInteger(params.key_length, /* right */ false, &encoded);
+  if (!ctx.digestUpdate({encoded.data(), size})) return false;
+  prefix_size += size;
+
+  const auto* key =
+      reinterpret_cast<const unsigned char*>(params.key.GetSymmetricKey());
+  const size_t whole_bytes = params.key_length / CHAR_BIT;
+  const unsigned int key_remainder = params.key_length % CHAR_BIT;
+  if (!ctx.digestUpdate({key, whole_bytes})) return false;
+  prefix_size += whole_bytes;
+  if (key_remainder != 0) {
+    // Raw/JWK keys keep a partial byte high-aligned. Move those bits to
+    // Keccak's low-aligned representation before the bytepad zeroes.
+    unsigned char last = key[whole_bytes] >> (CHAR_BIT - key_remainder);
+    const bool updated = ctx.digestUpdate({&last, 1});
+    OPENSSL_cleanse(&last, sizeof(last));
+    if (!updated) return false;
+    prefix_size++;
+  }
+  constexpr std::array<unsigned char, 168> zeroes{};
+  const size_t padding = (rate - (prefix_size % rate)) % rate;
+  if (!ctx.digestUpdate({zeroes.data(), padding}) ||
+      !ctx.digestUpdate(params.data)) {
+    return false;
+  }
+
+  // Encode the requested bit length, not the rounded byte length used to
+  // squeeze the output. EVP_MAC cannot express this distinction.
+  size = EncodeKmacInteger(params.length, /* right */ true, &encoded);
+  if (!ctx.digestUpdate({encoded.data(), size})) return false;
+  if (params.length == 0) return true;
+
+  const size_t length_bytes =
+      params.length / CHAR_BIT + (params.length % CHAR_BIT != 0);
+  auto result = ctx.digestFinal(length_bytes);
+  if (!result) return false;
+  const unsigned int remainder = params.length % CHAR_BIT;
+  if (remainder != 0) {
+    // This prototype uses Keccak bit order for partial output bytes.
+    result.get<unsigned char>()[length_bytes - 1] &= (1u << remainder) - 1;
+  }
+  *out = ByteSource::Allocated(result.release());
+  return true;
+}
+
+}  // namespace
+
 bool KmacTraits::DeriveBits(Environment* env,
                             const KmacConfig& params,
                             ByteSource* out,
                             CryptoJobMode mode,
                             CryptoErrorStore*) {
-  if (params.length % CHAR_BIT != 0) return false;
+  const size_t key_bytes =
+      params.key_length / CHAR_BIT + (params.key_length % CHAR_BIT != 0);
+  if (key_bytes != params.key.GetSymmetricKeySize()) {
+    return false;
+  }
+  if (params.length % CHAR_BIT != 0 || params.key_length % CHAR_BIT != 0) {
+    return KmacWithCShake(params, out);
+  }
   const size_t length_bytes = params.length / CHAR_BIT;
 
   // Get the key data.
